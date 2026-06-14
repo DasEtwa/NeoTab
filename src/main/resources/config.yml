@@ -1,0 +1,12 @@
+server-name: "<gradient:#AA00AA:#BA55D3>Mein Epic Server</gradient>"
+animation-style: "rainbow"  # rainbow, purple-pulse, gradient-wave, static
+update-interval-ticks: 3     # 3 ticks = ~150ms for smooth animation
+enable-luckperms-prefix: true
+enable-placeholderapi: true
+custom-colors:
+  - "#AA00AA"
+  - "#9932CC"
+  - "#BA55D3"
+  - "#DDA0DD"
+  - "#9370DB"
+ram-format: "<gray>RAM: <light_purple>{used}MB / {total}MB ({percent}%)</light_purple> | <light_purple>Ping: {playerPing}ms</light_purple> | Avg: {avgPing}ms</gray>"

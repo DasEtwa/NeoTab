@@ -1,0 +1,39 @@
+name: NeoTab
+version: "${version}"
+main: de.NeoTab.neotab.NeoTab
+api-version: "1.21"
+softdepend: [LuckPerms, PlaceholderAPI]
+description: Animated tablist header and footer with stats, PlaceholderAPI support, and toggles
+author: muffinonboard aka DasEtwa
+
+commands:
+  tab:
+    description: NeoTab main command
+    usage: /tab <reload|setname|style>
+    aliases: [neotab]
+
+permissions:
+  neotab.admin:
+    description: Allows all NeoTab admin commands
+    default: op
+    children:
+      neotab.reload: true
+      neotab.setname: true
+      neotab.style: true
+  neotab.reload:
+    description: Allows reloading the config
+    default: op
+  neotab.setname:
+    description: Allows changing server name
+    default: op
+  neotab.style:
+    description: Allows changing animation style
+    default: op
+  neotab.admin.*:
+    description: Wildcard for all admin permissions
+    default: op
+    children:
+      neotab.admin: true
+      neotab.reload: true
+      neotab.setname: true
+      neotab.style: true
