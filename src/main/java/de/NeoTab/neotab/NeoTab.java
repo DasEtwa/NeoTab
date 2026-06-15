@@ -97,6 +97,14 @@ public final class NeoTab extends JavaPlugin implements Listener {
     }
 
     private LuckPerms fetchLuckPerms(boolean warn) {
+        if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+            if (warn && !luckPermsWarned) {
+                luckPermsWarned = true;
+                getLogger().warning("LuckPerms not found; prefix/suffix support disabled.");
+            }
+            return null;
+        }
+
         RegisteredServiceProvider<LuckPerms> provider = getServer().getServicesManager().getRegistration(LuckPerms.class);
         LuckPerms resolved = provider == null ? null : provider.getProvider();
 
