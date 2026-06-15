@@ -1,6 +1,10 @@
 package de.NeoTab.neotab;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -20,6 +24,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 public final class ConfigManager {
     public static final int MIN_PERFORMANCE_INTERVAL_TICKS = 1;
     public static final int MAX_PERFORMANCE_INTERVAL_TICKS = 1200;
+    public static final int MAX_SCOREBOARD_LINES = 15;
 
     private static final List<TextColor> DEFAULT_COLORS = List.of(
         TextColor.color(0xAA00AA),
@@ -56,11 +61,22 @@ public final class ConfigManager {
         boolean luckPermsPrefixEnabled = config.getBoolean("enable-luckperms-prefix", true);
         boolean placeholderApiEnabled = config.getBoolean("enable-placeholderapi", true);
         boolean headerBoldAnimation = config.getBoolean("header.bold-animation", false);
+        boolean guiEnabled = config.getBoolean("gui.enabled", true);
         UpdateCheckerConfig updateCheckerConfig = new UpdateCheckerConfig(
             config.getBoolean("update-checker.enabled", true),
             config.getBoolean("update-checker.include-beta", false),
             config.getBoolean("update-checker.notify-admins", true),
             Math.max(0, config.getInt("update-checker.check-delay-seconds", 5))
+        );
+        ScoreboardConfig scoreboardConfig = new ScoreboardConfig(
+            config.getBoolean("scoreboard.enabled", false),
+            Math.max(1, config.getInt("scoreboard.update-interval-ticks", 20)),
+            validateMiniMessage(config.getString("scoreboard.title", "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"), "scoreboard.title"),
+            loadScoreboardLines(config),
+            loadScoreboardPresets(config)
+        );
+        ActionBarTimerConfig actionBarTimerConfig = new ActionBarTimerConfig(
+            config.getBoolean("extras.actionbar-timer.enabled", true)
         );
 
         AnimationUtils.Style style = AnimationUtils.Style.fromString(config.getString("animation-style", "rainbow"));
@@ -93,7 +109,10 @@ public final class ConfigManager {
             updateCheckerConfig,
             activePerformancePreset,
             performancePresets,
-            savedPerformancePresets
+            savedPerformancePresets,
+            guiEnabled,
+            scoreboardConfig,
+            actionBarTimerConfig
         ));
         loadMessages();
     }
@@ -133,6 +152,83 @@ public final class ConfigManager {
         config.set("update-interval-ticks", intervalTicks);
         plugin.saveConfig();
         reload();
+    }
+
+    public void setScoreboardEnabled(boolean enabled) {
+        plugin.getConfig().set("scoreboard.enabled", enabled);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setScoreboardTitle(String title) {
+        plugin.getConfig().set("scoreboard.title", title);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setScoreboardLine(int lineNumber, String text) {
+        if (lineNumber < 1 || lineNumber > MAX_SCOREBOARD_LINES) {
+            return;
+        }
+
+        ArrayList<String> lines = new ArrayList<>(getScoreboardConfig().lines());
+        while (lines.size() < lineNumber) {
+            lines.add("");
+        }
+        lines.set(lineNumber - 1, text);
+        plugin.getConfig().set("scoreboard.lines", lines);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void clearScoreboardLine(int lineNumber) {
+        if (lineNumber < 1 || lineNumber > MAX_SCOREBOARD_LINES) {
+            return;
+        }
+
+        ArrayList<String> lines = new ArrayList<>(getScoreboardConfig().lines());
+        if (lineNumber > lines.size()) {
+            return;
+        }
+        lines.set(lineNumber - 1, "");
+        trimTrailingBlankLines(lines);
+        plugin.getConfig().set("scoreboard.lines", lines);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void clearAllScoreboardLines() {
+        plugin.getConfig().set("scoreboard.lines", List.of());
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void saveScoreboardPreset(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        if (!isValidPerformancePresetName(normalizedPreset)) {
+            return;
+        }
+
+        FileConfiguration config = plugin.getConfig();
+        config.set("scoreboard.presets." + normalizedPreset + ".title", getScoreboardConfig().title());
+        config.set("scoreboard.presets." + normalizedPreset + ".lines", getScoreboardConfig().lines());
+        plugin.saveConfig();
+        reload();
+    }
+
+    public boolean loadScoreboardPreset(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        ScoreboardPreset preset = getScoreboardConfig().presets().get(normalizedPreset);
+        if (preset == null) {
+            return false;
+        }
+
+        FileConfiguration config = plugin.getConfig();
+        config.set("scoreboard.title", preset.title());
+        config.set("scoreboard.lines", preset.lines());
+        plugin.saveConfig();
+        reload();
+        return true;
     }
 
     public Integer getPerformancePresetTicks(String presetName) {
@@ -226,6 +322,18 @@ public final class ConfigManager {
         return snapshot.get().activePerformancePreset();
     }
 
+    public boolean isGuiEnabled() {
+        return snapshot.get().guiEnabled();
+    }
+
+    public ScoreboardConfig getScoreboardConfig() {
+        return snapshot.get().scoreboardConfig();
+    }
+
+    public ActionBarTimerConfig getActionBarTimerConfig() {
+        return snapshot.get().actionBarTimerConfig();
+    }
+
     public List<TextColor> getCustomColors() {
         return snapshot.get().customColors();
     }
@@ -240,6 +348,18 @@ public final class ConfigManager {
             plugin.saveResource("messages.yml", false);
         }
         messages = YamlConfiguration.loadConfiguration(messagesFile);
+        try (InputStream defaultsStream = plugin.getResource("messages.yml")) {
+            if (defaultsStream == null) {
+                return;
+            }
+
+            YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultsStream, StandardCharsets.UTF_8));
+            messages.setDefaults(defaults);
+            messages.options().copyDefaults(true);
+            messages.save(messagesFile);
+        } catch (IOException ex) {
+            plugin.getLogger().warning("Could not update messages.yml defaults: " + ex.getMessage());
+        }
     }
 
     private List<TextColor> parseColors(List<String> entries) {
@@ -303,6 +423,65 @@ public final class ConfigManager {
             values.put(normalizedKey, clampPerformanceTicks(ticks));
         }
         return Collections.unmodifiableMap(values);
+    }
+
+    private List<String> loadScoreboardLines(FileConfiguration config) {
+        List<String> configuredLines;
+        if (config.contains("scoreboard.lines")) {
+            configuredLines = config.getStringList("scoreboard.lines");
+        } else {
+            configuredLines = List.of(
+                "&7Online: &b{online}/{max}",
+                "&7Ping: &e{ping}ms",
+                "&7RAM: &a{ram_used}/{ram_max} MB"
+            );
+        }
+
+        ArrayList<String> lines = new ArrayList<>();
+        for (String line : configuredLines) {
+            if (lines.size() >= MAX_SCOREBOARD_LINES) {
+                break;
+            }
+            lines.add(line == null ? "" : line);
+        }
+        return List.copyOf(lines);
+    }
+
+    private Map<String, ScoreboardPreset> loadScoreboardPresets(FileConfiguration config) {
+        ConfigurationSection section = config.getConfigurationSection("scoreboard.presets");
+        if (section == null) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashMap<String, ScoreboardPreset> presets = new LinkedHashMap<>();
+        for (String key : section.getKeys(false)) {
+            String normalizedKey = normalizePerformancePresetName(key);
+            if (!isValidPerformancePresetName(normalizedKey)) {
+                logWarn("<color:#FF55FF>Invalid scoreboard preset in config.yml: " + key + "</color>");
+                continue;
+            }
+
+            String path = "scoreboard.presets." + key;
+            String title = validateMiniMessage(config.getString(path + ".title", "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"), path + ".title");
+            ArrayList<String> lines = new ArrayList<>();
+            for (String line : config.getStringList(path + ".lines")) {
+                if (lines.size() >= MAX_SCOREBOARD_LINES) {
+                    break;
+                }
+                lines.add(line == null ? "" : line);
+            }
+            presets.put(normalizedKey, new ScoreboardPreset(title, List.copyOf(lines)));
+        }
+        return Collections.unmodifiableMap(presets);
+    }
+
+    private void trimTrailingBlankLines(ArrayList<String> lines) {
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            if (!lines.get(i).isBlank()) {
+                return;
+            }
+            lines.remove(i);
+        }
     }
 
     private int resolveUpdateInterval(
@@ -435,7 +614,10 @@ public final class ConfigManager {
         UpdateCheckerConfig updateCheckerConfig,
         String activePerformancePreset,
         Map<String, Integer> performancePresets,
-        Map<String, Integer> savedPerformancePresets
+        Map<String, Integer> savedPerformancePresets,
+        boolean guiEnabled,
+        ScoreboardConfig scoreboardConfig,
+        ActionBarTimerConfig actionBarTimerConfig
     ) {
     }
 
@@ -444,6 +626,26 @@ public final class ConfigManager {
         boolean includeBeta,
         boolean notifyAdmins,
         int checkDelaySeconds
+    ) {
+    }
+
+    public record ScoreboardConfig(
+        boolean enabled,
+        int updateIntervalTicks,
+        String title,
+        List<String> lines,
+        Map<String, ScoreboardPreset> presets
+    ) {
+    }
+
+    public record ScoreboardPreset(
+        String title,
+        List<String> lines
+    ) {
+    }
+
+    public record ActionBarTimerConfig(
+        boolean enabled
     ) {
     }
 }

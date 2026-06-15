@@ -1,6 +1,6 @@
 # NeoTab
 
-NeoTab is a lightweight Paper tablist plugin for Minecraft `1.21+` that adds an animated tablist header and a live footer with RAM and ping stats.
+NeoTab is a lightweight Paper tablist plugin for Minecraft `1.20.6+` that adds an animated tablist header and a live footer with RAM and ping stats.
 
 Modrinth: https://modrinth.com/plugin/neotab/versions
 
@@ -10,11 +10,13 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | --- | --- | --- | --- |
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
+| `1.2.0-Beta.1` | Beta | `1.20.6+` target | Starts the ingame GUI foundation, scoreboard controls, and ActionBar Timer. |
 
 Version docs:
 
 - [NeoTab 1.0.2](docs/1.0.2.md)
 - [NeoTab 1.1.0](docs/1.1.0.md)
+- [NeoTab 1.2.0](docs/1.2.0.md)
 
 ## Features
 
@@ -24,6 +26,9 @@ Version docs:
 - Optional PlaceholderAPI support in `server-name` and `ram-format` (`1.1.0-Beta.1+`)
 - Optional Modrinth update checker with admin notifications
 - In-game performance presets for tab update intervals
+- Ingame control panel with `/tab gui`
+- Basic per-player sidebar scoreboard foundation
+- Simple ActionBar Timer
 - Paper `1.21` API target with Java 21 bytecode
 
 ## Installation
@@ -43,12 +48,12 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.1.0.jar
+build/libs/NeoTab-1.2.0-Beta.1.jar
 ```
 
 ## PlaceholderAPI
 
-PlaceholderAPI support is available in `1.1.0-Beta.1` and newer.
+PlaceholderAPI support is available in `1.1.0` and newer.
 
 If PlaceholderAPI is installed, NeoTab resolves placeholders inside:
 
@@ -107,6 +112,65 @@ Every `/tab performance ...` change is saved to `config.yml`. `save [name]` stor
 
 Players need `neotab.performance` to change these settings.
 
+## Control Panel
+
+Open the ingame control panel with:
+
+```text
+/tab gui
+```
+
+The first GUI version has three categories:
+
+- `Tab`: change the tab name through chat input and select existing animation styles.
+- `Scoreboard`: toggle a basic sidebar and edit lines 1-15.
+- `Extras`: select existing performance presets and control a simple ActionBar Timer.
+
+GUI items cannot be taken or moved.
+
+## Scoreboard
+
+Basic commands:
+
+```text
+/tab sb on
+/tab sb off
+/tab sb toggle
+/tab sb title <text>
+/tab sb line <1-15> <text>
+/tab sb clear <1-15>
+/tab sb clearall
+/tab sb save <name>
+/tab sb load <name>
+/tab sb list
+```
+
+Supported built-in placeholders:
+
+```text
+{online}
+{max}
+{ping}
+{avg_ping}
+{ram_used}
+{ram_max}
+{ram_percent}
+{server_name}
+```
+
+PlaceholderAPI remains optional and is only used when installed and enabled.
+
+## ActionBar Timer
+
+```text
+/tab timer start <duration>
+/tab timer stop
+/tab timer pause
+/tab timer resume
+```
+
+Duration examples: `30s`, `5m`, `10m`, `1h`.
+
 ## Header Bold
 
 Animated headers are no longer forced bold. To restore the old bold animation style:
@@ -121,4 +185,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.1.0`.
+- The current source version is `1.2.0-Beta.1`.

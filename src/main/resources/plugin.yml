@@ -9,7 +9,7 @@ author: muffinonboard aka DasEtwa
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style|performance>
+    usage: /tab <reload|setname|style|performance|gui|sb|timer>
     aliases: [neotab]
 
 permissions:
@@ -21,6 +21,13 @@ permissions:
       neotab.setname: true
       neotab.style: true
       neotab.performance: true
+      neotab.gui: true
+      neotab.scoreboard: true
+      neotab.scoreboard.toggle: true
+      neotab.scoreboard.edit: true
+      neotab.scoreboard.presets: true
+      neotab.timer: true
+      neotab.timer.admin: true
       neotab.update.notify: true
   neotab.reload:
     description: Allows reloading the config
@@ -34,6 +41,27 @@ permissions:
   neotab.performance:
     description: Allows changing and saving NeoTab performance presets
     default: op
+  neotab.gui:
+    description: Allows opening the NeoTab control panel
+    default: op
+  neotab.scoreboard:
+    description: Allows using NeoTab scoreboard commands and GUI controls
+    default: op
+  neotab.scoreboard.toggle:
+    description: Allows toggling the NeoTab scoreboard
+    default: op
+  neotab.scoreboard.edit:
+    description: Allows editing the NeoTab scoreboard title and lines
+    default: op
+  neotab.scoreboard.presets:
+    description: Allows saving and loading NeoTab scoreboard presets
+    default: op
+  neotab.timer:
+    description: Allows using the NeoTab ActionBar Timer
+    default: op
+  neotab.timer.admin:
+    description: Reserved for future ActionBar Timer admin controls
+    default: op
   neotab.update.notify:
     description: Shows NeoTab update notifications
     default: op
@@ -46,4 +74,11 @@ permissions:
       neotab.setname: true
       neotab.style: true
       neotab.performance: true
+      neotab.gui: true
+      neotab.scoreboard: true
+      neotab.scoreboard.toggle: true
+      neotab.scoreboard.edit: true
+      neotab.scoreboard.presets: true
+      neotab.timer: true
+      neotab.timer.admin: true
       neotab.update.notify: true

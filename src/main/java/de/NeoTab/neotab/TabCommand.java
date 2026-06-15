@@ -9,6 +9,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,12 +17,28 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private final ConfigManager configManager;
     private final TabUpdater tabUpdater;
     private final UpdateChecker updateChecker;
+    private final ChatInputManager chatInputManager;
+    private final ScoreboardService scoreboardService;
+    private final ActionBarTimerService actionBarTimerService;
+    private final NeoTabGui neoTabGui;
     private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
 
-    public TabCommand(ConfigManager configManager, TabUpdater tabUpdater, UpdateChecker updateChecker) {
+    public TabCommand(
+        ConfigManager configManager,
+        TabUpdater tabUpdater,
+        UpdateChecker updateChecker,
+        ChatInputManager chatInputManager,
+        ScoreboardService scoreboardService,
+        ActionBarTimerService actionBarTimerService,
+        NeoTabGui neoTabGui
+    ) {
         this.configManager = configManager;
         this.tabUpdater = tabUpdater;
         this.updateChecker = updateChecker;
+        this.chatInputManager = chatInputManager;
+        this.scoreboardService = scoreboardService;
+        this.actionBarTimerService = actionBarTimerService;
+        this.neoTabGui = neoTabGui;
     }
 
     @Override
@@ -43,6 +60,8 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 tabUpdater.restart();
                 tabUpdater.updateAllNow();
                 updateChecker.start();
+                chatInputManager.cancelAll(true);
+                scoreboardService.restart();
                 sender.sendMessage(configManager.message("reload-success"));
                 return true;
             }
@@ -87,6 +106,15 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             case "performance" -> {
                 return handlePerformance(sender, args);
             }
+            case "gui" -> {
+                return handleGui(sender);
+            }
+            case "sb", "scoreboard" -> {
+                return handleScoreboard(sender, args);
+            }
+            case "timer" -> {
+                return handleTimer(sender, args);
+            }
             default -> {
                 sender.sendMessage(configManager.message("command-unknown"));
                 return true;
@@ -104,6 +132,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "setname", "neotab.setname", prefix, sender);
             addIfAllowed(completions, "style", "neotab.style", prefix, sender);
             addIfAllowed(completions, "performance", "neotab.performance", prefix, sender);
+            addIfAllowed(completions, "gui", "neotab.gui", prefix, sender);
+            addIfAllowed(completions, "sb", "neotab.scoreboard", prefix, sender);
+            addIfAllowed(completions, "timer", "neotab.timer", prefix, sender);
             return completions;
         }
 
@@ -136,7 +167,243 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if ((args[0].equalsIgnoreCase("sb") || args[0].equalsIgnoreCase("scoreboard")) && sender.hasPermission("neotab.scoreboard")) {
+            completeScoreboard(completions, args);
+        }
+
+        if (args[0].equalsIgnoreCase("timer") && sender.hasPermission("neotab.timer")) {
+            completeTimer(completions, args);
+        }
+
         return completions;
+    }
+
+    private boolean handleGui(CommandSender sender) {
+        if (!sender.hasPermission("neotab.gui")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.message("player-only"));
+            return true;
+        }
+
+        neoTabGui.openMain(player);
+        return true;
+    }
+
+    private boolean handleScoreboard(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.scoreboard")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("scoreboard-usage"));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "on" -> {
+                if (!sender.hasPermission("neotab.scoreboard.toggle")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                setScoreboardEnabled(sender, true);
+                return true;
+            }
+            case "off" -> {
+                if (!sender.hasPermission("neotab.scoreboard.toggle")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                setScoreboardEnabled(sender, false);
+                return true;
+            }
+            case "toggle" -> {
+                if (!sender.hasPermission("neotab.scoreboard.toggle")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (sender instanceof Player player) {
+                    boolean enabled = scoreboardService.toggle(player);
+                    sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
+                } else {
+                    boolean enabled = !configManager.getScoreboardConfig().enabled();
+                    scoreboardService.setGlobalEnabled(enabled);
+                    sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
+                }
+                return true;
+            }
+            case "title" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-title-usage"));
+                    return true;
+                }
+                scoreboardService.setTitle(joinArgs(args, 2));
+                sender.sendMessage(configManager.message("scoreboard-title-changed"));
+                return true;
+            }
+            case "line" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 4) {
+                    sender.sendMessage(configManager.message("scoreboard-line-usage"));
+                    return true;
+                }
+                Integer lineNumber = parseLineNumber(args[2]);
+                if (lineNumber == null) {
+                    sender.sendMessage(configManager.message("scoreboard-invalid-line"));
+                    return true;
+                }
+                scoreboardService.setLine(lineNumber, joinArgs(args, 3));
+                sender.sendMessage(configManager.message("scoreboard-line-changed", Map.of("line", Integer.toString(lineNumber))));
+                return true;
+            }
+            case "clear" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-clear-usage"));
+                    return true;
+                }
+                Integer lineNumber = parseLineNumber(args[2]);
+                if (lineNumber == null) {
+                    sender.sendMessage(configManager.message("scoreboard-invalid-line"));
+                    return true;
+                }
+                scoreboardService.clearLine(lineNumber);
+                sender.sendMessage(configManager.message("scoreboard-line-cleared", Map.of("line", Integer.toString(lineNumber))));
+                return true;
+            }
+            case "clearall" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                scoreboardService.clearAllLines();
+                sender.sendMessage(configManager.message("scoreboard-cleared"));
+                return true;
+            }
+            case "preset", "load" -> {
+                if (!sender.hasPermission("neotab.scoreboard.presets")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-preset-usage"));
+                    return true;
+                }
+                String presetName = configManager.normalizePerformancePresetName(args[2]);
+                if (!scoreboardService.loadPreset(presetName)) {
+                    sender.sendMessage(configManager.message("scoreboard-preset-missing"));
+                    return true;
+                }
+                sender.sendMessage(configManager.message("scoreboard-preset-loaded", Map.of("name", presetName)));
+                return true;
+            }
+            case "save" -> {
+                if (!sender.hasPermission("neotab.scoreboard.presets")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-save-usage"));
+                    return true;
+                }
+                String presetName = configManager.normalizePerformancePresetName(args[2]);
+                if (!configManager.isValidPerformancePresetName(presetName)) {
+                    sender.sendMessage(configManager.message("performance-invalid-name"));
+                    return true;
+                }
+                scoreboardService.savePreset(presetName);
+                sender.sendMessage(configManager.message("scoreboard-preset-saved", Map.of("name", presetName)));
+                return true;
+            }
+            case "list" -> {
+                if (!sender.hasPermission("neotab.scoreboard.presets")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                List<String> presets = scoreboardService.listPresets();
+                String names = presets.isEmpty() ? "none" : String.join(", ", presets);
+                sender.sendMessage(configManager.message("scoreboard-preset-list", Map.of("names", names)));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("scoreboard-usage"));
+                return true;
+            }
+        }
+    }
+
+    private boolean handleTimer(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.timer")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.message("player-only"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("timer-usage"));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "start" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("timer-start-usage"));
+                    return true;
+                }
+                int durationSeconds = ActionBarTimerService.parseDurationSeconds(args[2]);
+                if (durationSeconds < 0) {
+                    sender.sendMessage(configManager.message("timer-invalid-duration"));
+                    return true;
+                }
+                boolean started = actionBarTimerService.start(player, durationSeconds);
+                sender.sendMessage(configManager.message(started ? "timer-started" : "timer-disabled"));
+                return true;
+            }
+            case "stop" -> {
+                boolean stopped = actionBarTimerService.stop(player);
+                sender.sendMessage(configManager.message(stopped ? "timer-stopped" : "timer-not-running"));
+                return true;
+            }
+            case "pause" -> {
+                boolean paused = actionBarTimerService.pause(player);
+                sender.sendMessage(configManager.message(paused ? "timer-paused" : "timer-not-running"));
+                return true;
+            }
+            case "resume" -> {
+                boolean resumed = actionBarTimerService.resume(player);
+                sender.sendMessage(configManager.message(resumed ? "timer-resumed" : "timer-not-running"));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("timer-usage"));
+                return true;
+            }
+        }
+    }
+
+    private void setScoreboardEnabled(CommandSender sender, boolean enabled) {
+        if (sender instanceof Player player) {
+            scoreboardService.setEnabled(player, enabled);
+        } else {
+            scoreboardService.setGlobalEnabled(enabled);
+        }
+        sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
     }
 
     private boolean handlePerformance(CommandSender sender, String[] args) {
@@ -237,6 +504,18 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private Integer parseLineNumber(String input) {
+        try {
+            int lineNumber = Integer.parseInt(input);
+            if (lineNumber < 1 || lineNumber > ConfigManager.MAX_SCOREBOARD_LINES) {
+                return null;
+            }
+            return lineNumber;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
     private void addIfAllowed(List<String> completions, String option, String permission, String prefix, CommandSender sender) {
         if (sender.hasPermission(permission) && option.startsWith(prefix)) {
             completions.add(option);
@@ -246,6 +525,50 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private void addPerformanceCompletion(List<String> completions, String option, String prefix) {
         if (option.startsWith(prefix) && !completions.contains(option)) {
             completions.add(option);
+        }
+    }
+
+    private void completeScoreboard(List<String> completions, String[] args) {
+        if (args.length == 2) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            for (String option : List.of("on", "off", "toggle", "title", "line", "clear", "clearall", "preset", "save", "load", "list")) {
+                if (option.startsWith(prefix)) {
+                    completions.add(option);
+                }
+            }
+        } else if (args.length == 3 && (args[1].equalsIgnoreCase("line") || args[1].equalsIgnoreCase("clear"))) {
+            String prefix = args[2].toLowerCase(Locale.ROOT);
+            for (int i = 1; i <= ConfigManager.MAX_SCOREBOARD_LINES; i++) {
+                String value = Integer.toString(i);
+                if (value.startsWith(prefix)) {
+                    completions.add(value);
+                }
+            }
+        } else if (args.length == 3 && (args[1].equalsIgnoreCase("preset") || args[1].equalsIgnoreCase("load"))) {
+            String prefix = args[2].toLowerCase(Locale.ROOT);
+            for (String preset : scoreboardService.listPresets()) {
+                if (preset.startsWith(prefix)) {
+                    completions.add(preset);
+                }
+            }
+        }
+    }
+
+    private void completeTimer(List<String> completions, String[] args) {
+        if (args.length == 2) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            for (String option : List.of("start", "stop", "pause", "resume")) {
+                if (option.startsWith(prefix)) {
+                    completions.add(option);
+                }
+            }
+        } else if (args.length == 3 && args[1].equalsIgnoreCase("start")) {
+            String prefix = args[2].toLowerCase(Locale.ROOT);
+            for (String duration : List.of("30s", "5m", "10m", "1h")) {
+                if (duration.startsWith(prefix)) {
+                    completions.add(duration);
+                }
+            }
         }
     }
 

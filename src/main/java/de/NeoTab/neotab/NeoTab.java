@@ -15,6 +15,10 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private ConfigManager configManager;
     private TabUpdater tabUpdater;
     private UpdateChecker updateChecker;
+    private ChatInputManager chatInputManager;
+    private ScoreboardService scoreboardService;
+    private ActionBarTimerService actionBarTimerService;
+    private NeoTabGui neoTabGui;
     private LuckPerms luckPerms;
     private boolean luckPermsWarned;
 
@@ -26,12 +30,21 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
         tabUpdater = new TabUpdater(this, configManager);
         updateChecker = new UpdateChecker(this, configManager);
+        chatInputManager = new ChatInputManager(this, configManager);
+        scoreboardService = new ScoreboardService(this, configManager);
+        actionBarTimerService = new ActionBarTimerService(this, configManager);
+        neoTabGui = new NeoTabGui(this, configManager, tabUpdater, scoreboardService, actionBarTimerService, chatInputManager);
         registerCommands();
 
         getServer().getPluginManager().registerEvents(this, this);
+        getServer().getPluginManager().registerEvents(chatInputManager, this);
+        getServer().getPluginManager().registerEvents(scoreboardService, this);
+        getServer().getPluginManager().registerEvents(actionBarTimerService, this);
+        getServer().getPluginManager().registerEvents(neoTabGui, this);
         tabUpdater.initializeCounts(getServer().getOnlinePlayers().size(), getServer().getMaxPlayers());
         tabUpdater.start();
         tabUpdater.updateAllNow();
+        scoreboardService.start();
         updateChecker.start();
 
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab enabled.</bold></gradient>");
@@ -39,6 +52,18 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (neoTabGui != null) {
+            neoTabGui.closeAll();
+        }
+        if (chatInputManager != null) {
+            chatInputManager.cancelAll(false);
+        }
+        if (actionBarTimerService != null) {
+            actionBarTimerService.stopAll();
+        }
+        if (scoreboardService != null) {
+            scoreboardService.stop();
+        }
         if (tabUpdater != null) {
             tabUpdater.stop();
             tabUpdater.clearAll();
@@ -65,6 +90,22 @@ public final class NeoTab extends JavaPlugin implements Listener {
         return updateChecker;
     }
 
+    public ChatInputManager getChatInputManager() {
+        return chatInputManager;
+    }
+
+    public ScoreboardService getScoreboardService() {
+        return scoreboardService;
+    }
+
+    public ActionBarTimerService getActionBarTimerService() {
+        return actionBarTimerService;
+    }
+
+    public NeoTabGui getNeoTabGui() {
+        return neoTabGui;
+    }
+
     public LuckPerms ensureLuckPerms() {
         if (luckPerms == null && configManager != null && configManager.isLuckPermsPrefixEnabled()) {
             luckPerms = fetchLuckPerms(true);
@@ -79,6 +120,9 @@ public final class NeoTab extends JavaPlugin implements Listener {
         }
         if (updateChecker != null) {
             getServer().getScheduler().runTaskLater(this, () -> updateChecker.notifyPlayer(event.getPlayer()), 20L);
+        }
+        if (scoreboardService != null) {
+            scoreboardService.handleJoin(event.getPlayer());
         }
     }
 
@@ -96,7 +140,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             return;
         }
 
-        TabCommand tabCommand = new TabCommand(configManager, tabUpdater, updateChecker);
+        TabCommand tabCommand = new TabCommand(configManager, tabUpdater, updateChecker, chatInputManager, scoreboardService, actionBarTimerService, neoTabGui);
         command.setExecutor(tabCommand);
         command.setTabCompleter(tabCommand);
     }

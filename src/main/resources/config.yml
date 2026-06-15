@@ -17,6 +17,20 @@ update-checker:
   include-beta: false        # true also considers Modrinth beta versions
   notify-admins: true        # notify players with neotab.update.notify
   check-delay-seconds: 5
+gui:
+  enabled: true
+scoreboard:
+  enabled: false
+  update-interval-ticks: 20
+  title: "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"
+  lines:
+    - "&7Online: &b{online}/{max}"
+    - "&7Ping: &e{ping}ms"
+    - "&7RAM: &a{ram_used}/{ram_max} MB"
+  presets: {}
+extras:
+  actionbar-timer:
+    enabled: true
 custom-colors:
   - "#AA00AA"
   - "#9932CC"
