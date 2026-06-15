@@ -88,6 +88,12 @@ public final class TabUpdater {
 
     public void updateAllNow() {
         int online = Bukkit.getOnlinePlayers().size();
+        if (online == 0) {
+            onlineCount.set(0);
+            maxPlayers.set(Math.max(1, Bukkit.getServer().getMaxPlayers()));
+            return;
+        }
+
         int max = Math.max(1, Bukkit.getServer().getMaxPlayers());
         onlineCount.set(online);
         maxPlayers.set(max);

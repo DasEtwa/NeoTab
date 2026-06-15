@@ -24,7 +24,13 @@ public final class PlaceholderSupport {
     }
 
     public String setPlaceholders(Player player, String input) {
-        if (!available || input == null || input.isBlank()) {
+        if (
+            !available
+                || input == null
+                || input.isBlank()
+                || input.indexOf('%') < 0
+                || Bukkit.getOnlinePlayers().isEmpty()
+        ) {
             return input;
         }
 

@@ -9,12 +9,12 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | Version | Type | Minecraft | Notes |
 | --- | --- | --- | --- |
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
-| `1.1.0-Beta.3` | Beta | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
+| `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 
 Version docs:
 
 - [NeoTab 1.0.2](docs/1.0.2.md)
-- [NeoTab 1.1.0 Beta.3](docs/1.1.0-Beta.3.md)
+- [NeoTab 1.1.0](docs/1.1.0.md)
 
 ## Features
 
@@ -43,7 +43,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.1.0-Beta.3.jar
+build/libs/NeoTab-1.1.0.jar
 ```
 
 ## PlaceholderAPI
@@ -121,4 +121,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.1.0-Beta.3`.
+- The current source version is `1.1.0`.
