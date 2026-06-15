@@ -16,8 +16,9 @@ public final class PlaceholderSupport {
     }
 
     public void refresh() {
+        boolean wasAvailable = available;
         available = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
-        if (available) {
+        if (available && !wasAvailable) {
             plugin.getLogger().info("PlaceholderAPI support enabled.");
         }
     }

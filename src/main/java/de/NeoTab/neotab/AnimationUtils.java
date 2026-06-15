@@ -23,11 +23,12 @@ public final class AnimationUtils {
             return config.toLegacy(serverNameRaw, "server-name");
         }
 
+        boolean bold = config.isHeaderBoldAnimationEnabled();
         return switch (config.getStyle()) {
-            case RAINBOW -> buildRainbow(plain, colors, tick);
-            case PURPLE_PULSE -> buildPulse(plain, colors, tick);
-            case GRADIENT_WAVE -> buildGradientWave(plain, colors, tick);
-            case STATIC -> buildStaticGradient(plain, colors);
+            case RAINBOW -> buildRainbow(plain, colors, tick, bold);
+            case PURPLE_PULSE -> buildPulse(plain, colors, tick, bold);
+            case GRADIENT_WAVE -> buildGradientWave(plain, colors, tick, bold);
+            case STATIC -> buildStaticGradient(plain, colors, bold);
         };
     }
 
@@ -36,6 +37,9 @@ public final class AnimationUtils {
             .replace("{used}", Long.toString(stats.usedMb()))
             .replace("{total}", Long.toString(stats.totalMb()))
             .replace("{percent}", Integer.toString(stats.percent()))
+            .replace("{ram_used}", Long.toString(stats.usedMb()))
+            .replace("{ram_max}", Long.toString(stats.totalMb()))
+            .replace("{ram_percent}", Integer.toString(stats.percent()))
             .replace("{online}", Integer.toString(online))
             .replace("{max}", Integer.toString(max));
     }
@@ -45,17 +49,17 @@ public final class AnimationUtils {
         return "<" + color + ">" + ping + "</" + color + ">";
     }
 
-    private static String buildRainbow(String text, List<TextColor> colors, int tick) {
-        return buildColored(text, index -> colors.get(Math.floorMod(index + tick, colors.size())));
+    private static String buildRainbow(String text, List<TextColor> colors, int tick, boolean bold) {
+        return buildColored(text, index -> colors.get(Math.floorMod(index + tick, colors.size())), bold);
     }
 
-    private static String buildPulse(String text, List<TextColor> colors, int tick) {
+    private static String buildPulse(String text, List<TextColor> colors, int tick, boolean bold) {
         double position = (Math.sin(tick * 0.14) + 1.0) / 2.0;
         TextColor color = gradientColor(colors, position);
-        return buildColored(text, index -> color);
+        return buildColored(text, index -> color, bold);
     }
 
-    private static String buildGradientWave(String text, List<TextColor> colors, int tick) {
+    private static String buildGradientWave(String text, List<TextColor> colors, int tick, boolean bold) {
         int length = text.length();
         double wave = (Math.sin(tick * 0.12) + 1.0) / 2.0;
         return buildColored(text, index -> {
@@ -66,10 +70,10 @@ public final class AnimationUtils {
             double base = (double) index / (double) (length - 1);
             double position = (base + wave) % 1.0;
             return gradientColor(colors, position);
-        });
+        }, bold);
     }
 
-    private static String buildStaticGradient(String text, List<TextColor> colors) {
+    private static String buildStaticGradient(String text, List<TextColor> colors, boolean bold) {
         int length = text.length();
         return buildColored(text, index -> {
             if (length <= 1) {
@@ -78,14 +82,18 @@ public final class AnimationUtils {
 
             double position = (double) index / (double) (length - 1);
             return gradientColor(colors, position);
-        });
+        }, bold);
     }
 
-    private static String buildColored(String text, IntFunction<TextColor> colorProvider) {
+    private static String buildColored(String text, IntFunction<TextColor> colorProvider, boolean bold) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             TextColor color = colorProvider.apply(i);
-            builder.append(legacyHex(color)).append("\u00A7l").append(text.charAt(i));
+            builder.append(legacyHex(color));
+            if (bold) {
+                builder.append("\u00A7l");
+            }
+            builder.append(text.charAt(i));
         }
         return builder.toString();
     }

@@ -9,7 +9,7 @@ author: muffinonboard aka DasEtwa
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style>
+    usage: /tab <reload|setname|style|performance>
     aliases: [neotab]
 
 permissions:
@@ -20,6 +20,8 @@ permissions:
       neotab.reload: true
       neotab.setname: true
       neotab.style: true
+      neotab.performance: true
+      neotab.update.notify: true
   neotab.reload:
     description: Allows reloading the config
     default: op
@@ -29,6 +31,12 @@ permissions:
   neotab.style:
     description: Allows changing animation style
     default: op
+  neotab.performance:
+    description: Allows changing and saving NeoTab performance presets
+    default: op
+  neotab.update.notify:
+    description: Shows NeoTab update notifications
+    default: op
   neotab.admin.*:
     description: Wildcard for all admin permissions
     default: op
@@ -37,3 +45,5 @@ permissions:
       neotab.reload: true
       neotab.setname: true
       neotab.style: true
+      neotab.performance: true
+      neotab.update.notify: true

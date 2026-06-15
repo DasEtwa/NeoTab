@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedMetaData;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.platform.PlayerAdapter;
@@ -22,7 +22,6 @@ public final class TabUpdater {
     private final NeoTab plugin;
     private final ConfigManager configManager;
     private final LegacyComponentSerializer legacySerializer;
-    private final LegacyComponentSerializer legacyAmpersandSerializer;
     private final AtomicInteger tick;
     private final AtomicInteger onlineCount;
     private final AtomicInteger maxPlayers;
@@ -33,12 +32,12 @@ public final class TabUpdater {
 
     private BukkitTask task;
     private int avgPingCountdown;
+    private long maxRamMbCache;
 
     public TabUpdater(NeoTab plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         legacySerializer = LegacyComponentSerializer.legacySection();
-        legacyAmpersandSerializer = LegacyComponentSerializer.legacyAmpersand();
         tick = new AtomicInteger();
         onlineCount = new AtomicInteger();
         maxPlayers = new AtomicInteger();
@@ -46,6 +45,7 @@ public final class TabUpdater {
         xmxWarned = new AtomicBoolean(false);
         luckPermsAdapterWarned = new AtomicBoolean(false);
         placeholderSupport = new PlaceholderSupport(plugin);
+        maxRamMbCache = -1L;
     }
 
     public void initializeCounts(int online, int max) {
@@ -64,10 +64,9 @@ public final class TabUpdater {
         task = new BukkitRunnable() {
             @Override
             public void run() {
-                TabSnapshot snapshot = buildSnapshot(tick.getAndIncrement());
-                Bukkit.getScheduler().runTask(plugin, () -> applySnapshot(snapshot));
+                updateAllNow();
             }
-        }.runTaskTimerAsynchronously(plugin, 0L, interval);
+        }.runTaskTimer(plugin, 0L, interval);
     }
 
     public void stop() {
@@ -80,18 +79,30 @@ public final class TabUpdater {
     }
 
     public void handleJoin() {
-        onlineCount.incrementAndGet();
-        updateAllNow();
+        updateNowOrSchedule();
     }
 
     public void handleQuit() {
-        onlineCount.updateAndGet(current -> Math.max(0, current - 1));
-        updateAllNow();
+        updateNowOrSchedule();
     }
 
     public void updateAllNow() {
-        TabSnapshot snapshot = buildSnapshot(tick.get());
+        int online = Bukkit.getOnlinePlayers().size();
+        int max = Math.max(1, Bukkit.getServer().getMaxPlayers());
+        onlineCount.set(online);
+        maxPlayers.set(max);
+
+        TabSnapshot snapshot = buildSnapshot(tick.getAndIncrement(), online, max);
         applySnapshot(snapshot);
+    }
+
+    private void updateNowOrSchedule() {
+        if (Bukkit.isPrimaryThread()) {
+            updateAllNow();
+            return;
+        }
+
+        Bukkit.getScheduler().runTask(plugin, this::updateAllNow);
     }
 
     public void clearAll() {
@@ -100,10 +111,8 @@ public final class TabUpdater {
         }
     }
 
-    private TabSnapshot buildSnapshot(int tickValue) {
+    private TabSnapshot buildSnapshot(int tickValue, int online, int max) {
         RamStats stats = readRam();
-        int online = onlineCount.get();
-        int max = Math.max(1, maxPlayers.get());
         String footerMiniMessageBase = AnimationUtils.buildFooterMiniMessageBase(configManager, stats, online, max);
         return new TabSnapshot(tickValue, footerMiniMessageBase);
     }
@@ -113,9 +122,6 @@ public final class TabUpdater {
             avgPingCountdown = AVG_PING_REFRESH_TICKS;
             avgPingCache.set(computeAveragePing());
         }
-
-        onlineCount.set(Bukkit.getOnlinePlayers().size());
-        maxPlayers.set(Math.max(1, Bukkit.getServer().getMaxPlayers()));
 
         int avgPing = avgPingCache.get();
         boolean useLuckPerms = configManager.isLuckPermsPrefixEnabled() && plugin.ensureLuckPerms() != null;
@@ -129,15 +135,13 @@ public final class TabUpdater {
             int playerPing = Math.max(0, player.getPing());
             String footerMiniMessage = snapshot.footerMiniMessageBase()
                 .replace("{playerPing}", AnimationUtils.colorizePingMiniMessage(playerPing))
-                .replace("{avgPing}", AnimationUtils.colorizePingMiniMessage(avgPing));
+                .replace("{player_ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
+                .replace("{ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
+                .replace("{avgPing}", AnimationUtils.colorizePingMiniMessage(avgPing))
+                .replace("{avg_ping}", AnimationUtils.colorizePingMiniMessage(avgPing));
             footerMiniMessage = applyPlaceholders(player, footerMiniMessage);
 
-            String legacyFooter = legacySerializer.serialize(configManager.deserialize(footerMiniMessage, "ram-format"));
-            if (legacyFooter.contains("<")) {
-                legacyFooter = manualLegacyFallback(legacyFooter);
-            }
-
-            Component footerComponent = legacySerializer.deserialize(legacyFooter);
+            Component footerComponent = configManager.deserialize(footerMiniMessage, "ram-format");
             player.playerListName(buildPlayerListName(player, playerAdapter));
             player.sendPlayerListHeaderAndFooter(headerComponent, footerComponent);
         }
@@ -156,8 +160,9 @@ public final class TabUpdater {
         }
 
         try {
-            return LuckPermsProvider.get().getPlayerAdapter(Player.class);
-        } catch (IllegalStateException ex) {
+            LuckPerms luckPerms = plugin.ensureLuckPerms();
+            return luckPerms == null ? null : luckPerms.getPlayerAdapter(Player.class);
+        } catch (RuntimeException ex) {
             if (luckPermsAdapterWarned.compareAndSet(false, true)) {
                 plugin.getLogger().fine("LuckPerms PlayerAdapter not available: " + ex.getMessage());
             }
@@ -169,9 +174,20 @@ public final class TabUpdater {
         Runtime runtime = Runtime.getRuntime();
         long usedBytes = runtime.totalMemory() - runtime.freeMemory();
         long usedMb = usedBytes / 0x100000L;
-        long totalMb = readXmxMb();
+        long totalMb = readMaxRamMb();
         int percent = totalMb > 0L ? (int) Math.round((double) usedMb / (double) totalMb * 100.0) : 0;
         return new RamStats(usedMb, totalMb, percent);
+    }
+
+    private long readMaxRamMb() {
+        long cached = maxRamMbCache;
+        if (cached > 0L) {
+            return cached;
+        }
+
+        long resolved = readXmxMb();
+        maxRamMbCache = resolved;
+        return resolved;
     }
 
     private long readXmxMb() {
@@ -263,47 +279,25 @@ public final class TabUpdater {
         }
 
         CachedMetaData metaData = user.getCachedData().getMetaData();
-        String prefix = sanitizeLuckPermsMeta(metaData.getPrefix());
-        String suffix = sanitizeLuckPermsMeta(metaData.getSuffix());
+        String prefix = metaData.getPrefix();
+        String suffix = metaData.getSuffix();
         Component nameComponent = Component.text(player.getName());
 
-        if (prefix.isEmpty() && suffix.isEmpty()) {
+        if ((prefix == null || prefix.isBlank()) && (suffix == null || suffix.isBlank())) {
             return nameComponent;
         }
 
-        Component prefixComponent = legacyAmpersandSerializer.deserialize(prefix);
-        Component suffixComponent = legacyAmpersandSerializer.deserialize(suffix);
+        Component prefixComponent = deserializeLuckPermsMeta(prefix, "luckperms-prefix");
+        Component suffixComponent = deserializeLuckPermsMeta(suffix, "luckperms-suffix");
         return prefixComponent.append(nameComponent).append(suffixComponent);
     }
 
-    private String sanitizeLuckPermsMeta(String input) {
+    private Component deserializeLuckPermsMeta(String input, String context) {
         if (input == null || input.isBlank()) {
-            return "";
+            return Component.empty();
         }
 
-        String sanitized = input.replace("\u00C2", "").replace('\u00A7', '&');
-        if (sanitized.indexOf('<') >= 0) {
-            sanitized = sanitized.replaceAll("<[^>]+>", "");
-        }
-        return sanitized;
-    }
-
-    private String manualLegacyFallback(String input) {
-        String legacy = input
-            .replace("<gray>", "\u00A77")
-            .replace("</gray>", "")
-            .replace("<light_purple>", "\u00A7d")
-            .replace("</light_purple>", "")
-            .replace("<green>", "\u00A7a")
-            .replace("</green>", "")
-            .replace("<yellow>", "\u00A7e")
-            .replace("</yellow>", "")
-            .replace("<red>", "\u00A7c")
-            .replace("</red>", "")
-            .replace("<white>", "\u00A7f")
-            .replace("</white>", "");
-
-        return legacy.replaceAll("<[^>]+>", "");
+        return configManager.deserialize(input, context);
     }
 
     public record TabSnapshot(int tickValue, String footerMiniMessageBase) {

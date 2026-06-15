@@ -1,8 +1,22 @@
 server-name: "<gradient:#AA00AA:#BA55D3>Mein Epic Server</gradient>"
 animation-style: "rainbow"  # rainbow, purple-pulse, gradient-wave, static
-update-interval-ticks: 3     # 3 ticks = ~150ms for smooth animation
+header:
+  bold-animation: false      # true restores the old bold animated header style
+performance:
+  active-preset: "smooth"    # smooth, balanced, light, custom, or a saved preset name
+  presets:
+    smooth: 3                # ~150ms; smoothest animation, highest update rate
+    balanced: 10             # ~500ms; good default for busier servers
+    light: 20                # ~1s; lower update rate for lighter server load
+  saved-presets: {}          # /tab performance save [name] stores custom presets here
+update-interval-ticks: 3     # used for custom mode and kept for older configs
 enable-luckperms-prefix: true
 enable-placeholderapi: true
+update-checker:
+  enabled: true              # Checks Modrinth on startup; does not download updates
+  include-beta: false        # true also considers Modrinth beta versions
+  notify-admins: true        # notify players with neotab.update.notify
+  check-delay-seconds: 5
 custom-colors:
   - "#AA00AA"
   - "#9932CC"

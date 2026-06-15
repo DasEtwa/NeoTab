@@ -14,6 +14,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     private ConfigManager configManager;
     private TabUpdater tabUpdater;
+    private UpdateChecker updateChecker;
     private LuckPerms luckPerms;
     private boolean luckPermsWarned;
 
@@ -24,12 +25,14 @@ public final class NeoTab extends JavaPlugin implements Listener {
         hookLuckPerms();
 
         tabUpdater = new TabUpdater(this, configManager);
+        updateChecker = new UpdateChecker(this, configManager);
         registerCommands();
 
         getServer().getPluginManager().registerEvents(this, this);
         tabUpdater.initializeCounts(getServer().getOnlinePlayers().size(), getServer().getMaxPlayers());
         tabUpdater.start();
         tabUpdater.updateAllNow();
+        updateChecker.start();
 
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab enabled.</bold></gradient>");
     }
@@ -39,6 +42,9 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (tabUpdater != null) {
             tabUpdater.stop();
             tabUpdater.clearAll();
+        }
+        if (updateChecker != null) {
+            updateChecker.stop();
         }
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab disabled.</bold></gradient>");
     }
@@ -55,6 +61,10 @@ public final class NeoTab extends JavaPlugin implements Listener {
         return tabUpdater;
     }
 
+    public UpdateChecker getUpdateChecker() {
+        return updateChecker;
+    }
+
     public LuckPerms ensureLuckPerms() {
         if (luckPerms == null && configManager != null && configManager.isLuckPermsPrefixEnabled()) {
             luckPerms = fetchLuckPerms(true);
@@ -66,6 +76,9 @@ public final class NeoTab extends JavaPlugin implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (tabUpdater != null) {
             tabUpdater.handleJoin();
+        }
+        if (updateChecker != null) {
+            getServer().getScheduler().runTaskLater(this, () -> updateChecker.notifyPlayer(event.getPlayer()), 20L);
         }
     }
 
@@ -83,7 +96,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             return;
         }
 
-        TabCommand tabCommand = new TabCommand(configManager, tabUpdater);
+        TabCommand tabCommand = new TabCommand(configManager, tabUpdater, updateChecker);
         command.setExecutor(tabCommand);
         command.setTabCompleter(tabCommand);
     }

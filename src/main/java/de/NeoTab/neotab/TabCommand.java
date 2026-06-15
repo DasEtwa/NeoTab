@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -14,10 +15,13 @@ import org.jetbrains.annotations.Nullable;
 public final class TabCommand implements CommandExecutor, TabCompleter {
     private final ConfigManager configManager;
     private final TabUpdater tabUpdater;
+    private final UpdateChecker updateChecker;
+    private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
 
-    public TabCommand(ConfigManager configManager, TabUpdater tabUpdater) {
+    public TabCommand(ConfigManager configManager, TabUpdater tabUpdater, UpdateChecker updateChecker) {
         this.configManager = configManager;
         this.tabUpdater = tabUpdater;
+        this.updateChecker = updateChecker;
     }
 
     @Override
@@ -38,6 +42,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 configManager.reload();
                 tabUpdater.restart();
                 tabUpdater.updateAllNow();
+                updateChecker.start();
                 sender.sendMessage(configManager.message("reload-success"));
                 return true;
             }
@@ -79,6 +84,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(configManager.message("style-success", Map.of("style", style.id())));
                 return true;
             }
+            case "performance" -> {
+                return handlePerformance(sender, args);
+            }
             default -> {
                 sender.sendMessage(configManager.message("command-unknown"));
                 return true;
@@ -95,6 +103,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "reload", "neotab.reload", prefix, sender);
             addIfAllowed(completions, "setname", "neotab.setname", prefix, sender);
             addIfAllowed(completions, "style", "neotab.style", prefix, sender);
+            addIfAllowed(completions, "performance", "neotab.performance", prefix, sender);
             return completions;
         }
 
@@ -108,11 +117,134 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             }
         }
 
+        if (args[0].equalsIgnoreCase("performance") && sender.hasPermission("neotab.performance")) {
+            if (args.length == 2) {
+                String prefix = args[1].toLowerCase(Locale.ROOT);
+                addPerformanceCompletion(completions, "custom", prefix);
+                addPerformanceCompletion(completions, "save", prefix);
+                for (String preset : configManager.getPerformancePresets().keySet()) {
+                    addPerformanceCompletion(completions, preset, prefix);
+                }
+                for (String preset : configManager.getSavedPerformancePresets().keySet()) {
+                    addPerformanceCompletion(completions, preset, prefix);
+                }
+            } else if (args.length == 3 && args[1].equalsIgnoreCase("custom")) {
+                String prefix = args[2].toLowerCase(Locale.ROOT);
+                addPerformanceCompletion(completions, "3", prefix);
+                addPerformanceCompletion(completions, "10", prefix);
+                addPerformanceCompletion(completions, "20", prefix);
+            }
+        }
+
         return completions;
+    }
+
+    private boolean handlePerformance(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.performance")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message(
+                "performance-usage",
+                Map.of(
+                    "preset", configManager.getActivePerformancePreset(),
+                    "ticks", String.valueOf(configManager.getUpdateIntervalTicks())
+                )
+            ));
+            return true;
+        }
+
+        String action = configManager.normalizePerformancePresetName(args[1]);
+        switch (action) {
+            case "custom" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("performance-custom-usage"));
+                    return true;
+                }
+
+                Integer ticks = parseTicks(args[2]);
+                if (ticks == null) {
+                    sender.sendMessage(configManager.message(
+                        "performance-invalid-ticks",
+                        Map.of(
+                            "min", String.valueOf(ConfigManager.MIN_PERFORMANCE_INTERVAL_TICKS),
+                            "max", String.valueOf(ConfigManager.MAX_PERFORMANCE_INTERVAL_TICKS)
+                        )
+                    ));
+                    return true;
+                }
+
+                applyPerformance(sender, "custom", ticks);
+                return true;
+            }
+            case "save" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("performance-save-usage"));
+                    return true;
+                }
+
+                String presetName = configManager.normalizePerformancePresetName(args[2]);
+                if (
+                    !configManager.isValidPerformancePresetName(presetName)
+                        || RESERVED_PERFORMANCE_NAMES.contains(presetName)
+                        || configManager.getPerformancePresets().containsKey(presetName)
+                ) {
+                    sender.sendMessage(configManager.message("performance-invalid-name"));
+                    return true;
+                }
+
+                configManager.saveCurrentPerformancePreset(presetName);
+                sender.sendMessage(configManager.message(
+                    "performance-save-success",
+                    Map.of("name", presetName, "ticks", String.valueOf(configManager.getUpdateIntervalTicks()))
+                ));
+                return true;
+            }
+            default -> {
+                Integer ticks = configManager.getPerformancePresetTicks(action);
+                if (ticks == null) {
+                    sender.sendMessage(configManager.message("performance-invalid-preset"));
+                    return true;
+                }
+
+                applyPerformance(sender, action, ticks);
+                return true;
+            }
+        }
+    }
+
+    private void applyPerformance(CommandSender sender, String presetName, int ticks) {
+        configManager.setPerformancePreset(presetName, ticks);
+        tabUpdater.restart();
+        tabUpdater.updateAllNow();
+        sender.sendMessage(configManager.message(
+            "performance-success",
+            Map.of("preset", presetName, "ticks", String.valueOf(configManager.getUpdateIntervalTicks()))
+        ));
+    }
+
+    private Integer parseTicks(String input) {
+        try {
+            int ticks = Integer.parseInt(input);
+            if (ticks < ConfigManager.MIN_PERFORMANCE_INTERVAL_TICKS || ticks > ConfigManager.MAX_PERFORMANCE_INTERVAL_TICKS) {
+                return null;
+            }
+            return ticks;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private void addIfAllowed(List<String> completions, String option, String permission, String prefix, CommandSender sender) {
         if (sender.hasPermission(permission) && option.startsWith(prefix)) {
+            completions.add(option);
+        }
+    }
+
+    private void addPerformanceCompletion(List<String> completions, String option, String prefix) {
+        if (option.startsWith(prefix) && !completions.contains(option)) {
             completions.add(option);
         }
     }

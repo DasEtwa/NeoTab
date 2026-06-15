@@ -3,6 +3,7 @@ package de.NeoTab.neotab;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -12,10 +13,14 @@ import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 public final class ConfigManager {
+    public static final int MIN_PERFORMANCE_INTERVAL_TICKS = 1;
+    public static final int MAX_PERFORMANCE_INTERVAL_TICKS = 1200;
+
     private static final List<TextColor> DEFAULT_COLORS = List.of(
         TextColor.color(0xAA00AA),
         TextColor.color(0x9932CC),
@@ -44,9 +49,19 @@ public final class ConfigManager {
 
         String serverName = config.getString("server-name", "<gradient:#AA00AA:#BA55D3>Mein Epic Server</gradient>");
         String footerFormat = config.getString("ram-format", "<gray>RAM: <light_purple>{used}MB / {total}MB ({percent}%)</light_purple></gray>");
-        int interval = Math.max(1, config.getInt("update-interval-ticks", 3));
+        Map<String, Integer> performancePresets = loadPerformancePresets(config);
+        Map<String, Integer> savedPerformancePresets = loadPerformanceValues(config, "performance.saved-presets");
+        String activePerformancePreset = normalizePerformancePresetName(config.getString("performance.active-preset", "custom"));
+        int interval = resolveUpdateInterval(config, activePerformancePreset, performancePresets, savedPerformancePresets);
         boolean luckPermsPrefixEnabled = config.getBoolean("enable-luckperms-prefix", true);
         boolean placeholderApiEnabled = config.getBoolean("enable-placeholderapi", true);
+        boolean headerBoldAnimation = config.getBoolean("header.bold-animation", false);
+        UpdateCheckerConfig updateCheckerConfig = new UpdateCheckerConfig(
+            config.getBoolean("update-checker.enabled", true),
+            config.getBoolean("update-checker.include-beta", false),
+            config.getBoolean("update-checker.notify-admins", true),
+            Math.max(0, config.getInt("update-checker.check-delay-seconds", 5))
+        );
 
         AnimationUtils.Style style = AnimationUtils.Style.fromString(config.getString("animation-style", "rainbow"));
         if (style == null) {
@@ -73,7 +88,12 @@ public final class ConfigManager {
             List.copyOf(colors),
             validatedFooter,
             luckPermsPrefixEnabled,
-            placeholderApiEnabled
+            placeholderApiEnabled,
+            headerBoldAnimation,
+            updateCheckerConfig,
+            activePerformancePreset,
+            performancePresets,
+            savedPerformancePresets
         ));
         loadMessages();
     }
@@ -92,6 +112,44 @@ public final class ConfigManager {
         plugin.getConfig().set("animation-style", style.id());
         plugin.saveConfig();
         reload();
+    }
+
+    public void setPerformancePreset(String presetName, int intervalTicks) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        int clampedTicks = clampPerformanceTicks(intervalTicks);
+        FileConfiguration config = plugin.getConfig();
+        config.set("performance.active-preset", normalizedPreset);
+        config.set("update-interval-ticks", clampedTicks);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void saveCurrentPerformancePreset(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        int intervalTicks = getUpdateIntervalTicks();
+        FileConfiguration config = plugin.getConfig();
+        config.set("performance.saved-presets." + normalizedPreset, intervalTicks);
+        config.set("performance.active-preset", normalizedPreset);
+        config.set("update-interval-ticks", intervalTicks);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public Integer getPerformancePresetTicks(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        Integer ticks = snapshot.get().performancePresets().get(normalizedPreset);
+        if (ticks != null) {
+            return ticks;
+        }
+        return snapshot.get().savedPerformancePresets().get(normalizedPreset);
+    }
+
+    public Map<String, Integer> getPerformancePresets() {
+        return snapshot.get().performancePresets();
+    }
+
+    public Map<String, Integer> getSavedPerformancePresets() {
+        return snapshot.get().savedPerformancePresets();
     }
 
     public Component message(String key) {
@@ -156,6 +214,18 @@ public final class ConfigManager {
         return snapshot.get().placeholderApiEnabled();
     }
 
+    public boolean isHeaderBoldAnimationEnabled() {
+        return snapshot.get().headerBoldAnimation();
+    }
+
+    public UpdateCheckerConfig getUpdateCheckerConfig() {
+        return snapshot.get().updateCheckerConfig();
+    }
+
+    public String getActivePerformancePreset() {
+        return snapshot.get().activePerformancePreset();
+    }
+
     public List<TextColor> getCustomColors() {
         return snapshot.get().customColors();
     }
@@ -193,6 +263,94 @@ public final class ConfigManager {
         return colors;
     }
 
+    private Map<String, Integer> loadPerformancePresets(FileConfiguration config) {
+        LinkedHashMap<String, Integer> presets = new LinkedHashMap<>();
+        presets.put("smooth", 3);
+        presets.put("balanced", 10);
+        presets.put("light", 20);
+
+        ConfigurationSection section = config.getConfigurationSection("performance.presets");
+        if (section == null) {
+            return Collections.unmodifiableMap(presets);
+        }
+
+        for (String key : section.getKeys(false)) {
+            String normalizedKey = normalizePerformancePresetName(key);
+            int ticks = section.getInt(key, -1);
+            if (!isValidPerformancePresetName(normalizedKey) || ticks < MIN_PERFORMANCE_INTERVAL_TICKS) {
+                logWarn("<color:#FF55FF>Invalid performance preset in config.yml: " + key + "</color>");
+                continue;
+            }
+            presets.put(normalizedKey, clampPerformanceTicks(ticks));
+        }
+        return Collections.unmodifiableMap(presets);
+    }
+
+    private Map<String, Integer> loadPerformanceValues(FileConfiguration config, String path) {
+        LinkedHashMap<String, Integer> values = new LinkedHashMap<>();
+        ConfigurationSection section = config.getConfigurationSection(path);
+        if (section == null) {
+            return Collections.emptyMap();
+        }
+
+        for (String key : section.getKeys(false)) {
+            String normalizedKey = normalizePerformancePresetName(key);
+            int ticks = section.getInt(key, -1);
+            if (!isValidPerformancePresetName(normalizedKey) || ticks < MIN_PERFORMANCE_INTERVAL_TICKS) {
+                logWarn("<color:#FF55FF>Invalid saved performance preset in config.yml: " + key + "</color>");
+                continue;
+            }
+            values.put(normalizedKey, clampPerformanceTicks(ticks));
+        }
+        return Collections.unmodifiableMap(values);
+    }
+
+    private int resolveUpdateInterval(
+        FileConfiguration config,
+        String activePerformancePreset,
+        Map<String, Integer> performancePresets,
+        Map<String, Integer> savedPerformancePresets
+    ) {
+        Integer presetTicks = null;
+        if (config.contains("performance.active-preset") && !"custom".equals(activePerformancePreset)) {
+            presetTicks = performancePresets.get(activePerformancePreset);
+            if (presetTicks == null) {
+                presetTicks = savedPerformancePresets.get(activePerformancePreset);
+            }
+        }
+
+        if (presetTicks != null) {
+            return clampPerformanceTicks(presetTicks);
+        }
+        return clampPerformanceTicks(config.getInt("update-interval-ticks", 3));
+    }
+
+    public int clampPerformanceTicks(int ticks) {
+        return Math.max(MIN_PERFORMANCE_INTERVAL_TICKS, Math.min(MAX_PERFORMANCE_INTERVAL_TICKS, ticks));
+    }
+
+    public String normalizePerformancePresetName(String presetName) {
+        if (presetName == null) {
+            return "";
+        }
+        return presetName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public boolean isValidPerformancePresetName(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        if (normalizedPreset.isEmpty() || normalizedPreset.length() > 32) {
+            return false;
+        }
+
+        for (int i = 0; i < normalizedPreset.length(); i++) {
+            char character = normalizedPreset.charAt(i);
+            if (!Character.isLetterOrDigit(character) && character != '-' && character != '_') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private String replacePlaceholders(String input, Map<String, String> placeholders) {
         String resolved = input;
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
@@ -204,34 +362,38 @@ public final class ConfigManager {
     private String translateLegacyCodes(String input) {
         String output = input;
         String[][] mappings = {
-            {"\u00A70", "<black>"},
-            {"\u00A71", "<dark_blue>"},
-            {"\u00A72", "<dark_green>"},
-            {"\u00A73", "<dark_aqua>"},
-            {"\u00A74", "<dark_red>"},
-            {"\u00A75", "<dark_purple>"},
-            {"\u00A76", "<gold>"},
-            {"\u00A77", "<gray>"},
-            {"\u00A78", "<dark_gray>"},
-            {"\u00A79", "<blue>"},
-            {"\u00A7a", "<green>"},
-            {"\u00A7b", "<aqua>"},
-            {"\u00A7c", "<red>"},
-            {"\u00A7d", "<light_purple>"},
-            {"\u00A7e", "<yellow>"},
-            {"\u00A7f", "<white>"},
-            {"\u00A7k", "<obfuscated>"},
-            {"\u00A7l", "<bold>"},
-            {"\u00A7m", "<strikethrough>"},
-            {"\u00A7n", "<underlined>"},
-            {"\u00A7o", "<italic>"},
-            {"\u00A7r", "<reset>"}
+            {"0", "<black>"},
+            {"1", "<dark_blue>"},
+            {"2", "<dark_green>"},
+            {"3", "<dark_aqua>"},
+            {"4", "<dark_red>"},
+            {"5", "<dark_purple>"},
+            {"6", "<gold>"},
+            {"7", "<gray>"},
+            {"8", "<dark_gray>"},
+            {"9", "<blue>"},
+            {"a", "<green>"},
+            {"b", "<aqua>"},
+            {"c", "<red>"},
+            {"d", "<light_purple>"},
+            {"e", "<yellow>"},
+            {"f", "<white>"},
+            {"k", "<obfuscated>"},
+            {"l", "<bold>"},
+            {"m", "<strikethrough>"},
+            {"n", "<underlined>"},
+            {"o", "<italic>"},
+            {"r", "<reset>"}
         };
 
         for (String[] mapping : mappings) {
             String code = mapping[0];
             String tag = mapping[1];
-            output = output.replace(code, tag).replace(code.toUpperCase(Locale.ROOT), tag);
+            output = output
+                .replace("\u00A7" + code, tag)
+                .replace("\u00A7" + code.toUpperCase(Locale.ROOT), tag)
+                .replace("&" + code, tag)
+                .replace("&" + code.toUpperCase(Locale.ROOT), tag);
         }
         return output;
     }
@@ -268,7 +430,20 @@ public final class ConfigManager {
         List<TextColor> customColors,
         String footerFormat,
         boolean luckPermsPrefixEnabled,
-        boolean placeholderApiEnabled
+        boolean placeholderApiEnabled,
+        boolean headerBoldAnimation,
+        UpdateCheckerConfig updateCheckerConfig,
+        String activePerformancePreset,
+        Map<String, Integer> performancePresets,
+        Map<String, Integer> savedPerformancePresets
+    ) {
+    }
+
+    public record UpdateCheckerConfig(
+        boolean enabled,
+        boolean includeBeta,
+        boolean notifyAdmins,
+        int checkDelaySeconds
     ) {
     }
 }
