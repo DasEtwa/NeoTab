@@ -1,10 +1,13 @@
 package de.NeoTab.neotab;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,6 +20,8 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private final TabUpdater tabUpdater;
     private final UpdateChecker updateChecker;
     private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
+    private static final int MAX_HEADER_COLORS = 5;
+    private static final Map<String, List<String>> COLOR_PRESETS = createColorPresets();
 
     public TabCommand(ConfigManager configManager, TabUpdater tabUpdater, UpdateChecker updateChecker) {
         this.configManager = configManager;
@@ -84,6 +89,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(configManager.message("style-success", Map.of("style", style.id())));
                 return true;
             }
+            case "color", "colour" -> {
+                return handleColor(sender, args);
+            }
             case "performance" -> {
                 return handlePerformance(sender, args);
             }
@@ -103,6 +111,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "reload", "neotab.reload", prefix, sender);
             addIfAllowed(completions, "setname", "neotab.setname", prefix, sender);
             addIfAllowed(completions, "style", "neotab.style", prefix, sender);
+            addIfAllowed(completions, "color", "neotab.color", prefix, sender);
             addIfAllowed(completions, "performance", "neotab.performance", prefix, sender);
             return completions;
         }
@@ -114,6 +123,18 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 if (id.startsWith(prefix)) {
                     completions.add(id);
                 }
+            }
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("color") && sender.hasPermission("neotab.color")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            for (String preset : COLOR_PRESETS.keySet()) {
+                if (preset.startsWith(prefix)) {
+                    completions.add(preset);
+                }
+            }
+            if ("#AA00AA,#BA55D3".startsWith(prefix)) {
+                completions.add("#AA00AA,#BA55D3");
             }
         }
 
@@ -137,6 +158,41 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
 
         return completions;
+    }
+
+    private boolean handleColor(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.color")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("color-usage"));
+            return true;
+        }
+
+        String input = joinArgs(args, 1).trim();
+        String presetName = input.toLowerCase(Locale.ROOT);
+        List<String> colors = COLOR_PRESETS.get(presetName);
+        String displayName = presetName;
+
+        if (colors == null) {
+            colors = parseCustomColors(input);
+            displayName = "custom";
+        }
+
+        if (colors == null) {
+            sender.sendMessage(configManager.message("color-invalid"));
+            return true;
+        }
+
+        configManager.setCustomColors(colors);
+        tabUpdater.restart();
+        tabUpdater.updateAllNow();
+        sender.sendMessage(configManager.message(
+            "color-success",
+            Map.of("preset", displayName, "colors", String.join(", ", colors))
+        ));
+        return true;
     }
 
     private boolean handlePerformance(CommandSender sender, String[] args) {
@@ -235,6 +291,42 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private List<String> parseCustomColors(String input) {
+        List<String> colors = Arrays.stream(input.split(","))
+            .map(String::trim)
+            .filter(entry -> !entry.isEmpty())
+            .map(this::normalizeHexColor)
+            .toList();
+
+        if (colors.isEmpty() || colors.size() > MAX_HEADER_COLORS) {
+            return null;
+        }
+
+        for (String color : colors) {
+            if (TextColor.fromHexString(color) == null) {
+                return null;
+            }
+        }
+        return colors;
+    }
+
+    private String normalizeHexColor(String input) {
+        String normalized = input.trim();
+        if (!normalized.startsWith("#") && normalized.matches("(?i)[0-9a-f]{6}")) {
+            normalized = "#" + normalized;
+        }
+        return normalized.toUpperCase(Locale.ROOT);
+    }
+
+    private static Map<String, List<String>> createColorPresets() {
+        LinkedHashMap<String, List<String>> presets = new LinkedHashMap<>();
+        presets.put("purple", List.of("#AA00AA", "#9932CC", "#BA55D3", "#DDA0DD", "#9370DB"));
+        presets.put("red", List.of("#7F0000", "#B00020", "#FF1744", "#FF6B6B", "#FFCDD2"));
+        presets.put("green", List.of("#005F2F", "#00A86B", "#00E676", "#69F0AE", "#B9F6CA"));
+        presets.put("gold", List.of("#8A5A00", "#C88719", "#FFC107", "#FFD54F", "#FFF176"));
+        return Map.copyOf(presets);
     }
 
     private void addIfAllowed(List<String> completions, String option, String permission, String prefix, CommandSender sender) {

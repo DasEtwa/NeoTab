@@ -10,6 +10,7 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | --- | --- | --- | --- |
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
+| `1.1.1` | Patch | `1.20.6+` target | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
 
 Version docs:
 
@@ -24,6 +25,7 @@ Version docs:
 - Optional PlaceholderAPI support in `server-name` and `ram-format` (`1.1.0-Beta.1+`)
 - Optional Modrinth update checker with admin notifications
 - In-game performance presets for tab update intervals
+- In-game header color presets and custom color lists
 - Paper `1.21` API target with Java 21 bytecode
 
 ## Installation
@@ -43,7 +45,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.1.0.jar
+build/libs/NeoTab-1.1.1.jar
 ```
 
 ## PlaceholderAPI
@@ -107,6 +109,22 @@ Every `/tab performance ...` change is saved to `config.yml`. `save [name]` stor
 
 Players need `neotab.performance` to change these settings.
 
+## Header Colors
+
+Change the animated header colors in-game:
+
+```text
+/tab color purple
+/tab color red
+/tab color green
+/tab color gold
+/tab color #AA00AA,#BA55D3,#DDA0DD
+```
+
+Custom color lists accept 1-5 hex colors separated by commas. The command saves the colors to `custom-colors` in `config.yml` and applies them live.
+
+Players need `neotab.color` to change header colors.
+
 ## Header Bold
 
 Animated headers are no longer forced bold. To restore the old bold animation style:
@@ -121,4 +139,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.1.0`.
+- The current source version is `1.1.1`.

@@ -18,6 +18,8 @@ update-checker:
   notify-admins: true        # notify players with neotab.update.notify
   check-delay-seconds: 5
 custom-colors:
+  # Used by /tab color and by all animated header styles.
+  # Supports 1-5 hex colors. Built-in command presets: purple, red, green, gold.
   - "#AA00AA"
   - "#9932CC"
   - "#BA55D3"

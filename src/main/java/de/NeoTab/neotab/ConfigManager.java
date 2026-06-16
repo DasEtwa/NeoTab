@@ -114,6 +114,12 @@ public final class ConfigManager {
         reload();
     }
 
+    public void setCustomColors(List<String> colors) {
+        plugin.getConfig().set("custom-colors", colors);
+        plugin.saveConfig();
+        reload();
+    }
+
     public void setPerformancePreset(String presetName, int intervalTicks) {
         String normalizedPreset = normalizePerformancePresetName(presetName);
         int clampedTicks = clampPerformanceTicks(intervalTicks);
