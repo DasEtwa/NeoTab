@@ -10,6 +10,7 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | --- | --- | --- | --- |
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
+| `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
 | `1.2.0-Beta.1` | Beta | `1.20.6+` target | Starts the ingame GUI foundation, scoreboard controls, and ActionBar Timer. |
 
 Version docs:
@@ -26,6 +27,7 @@ Version docs:
 - Optional PlaceholderAPI support in `server-name` and `ram-format` (`1.1.0-Beta.1+`)
 - Optional Modrinth update checker with admin notifications
 - In-game performance presets for tab update intervals
+- In-game header color presets and custom color lists
 - Ingame control panel with `/tab gui`
 - Basic per-player sidebar scoreboard foundation
 - Simple ActionBar Timer
@@ -112,6 +114,22 @@ Every `/tab performance ...` change is saved to `config.yml`. `save [name]` stor
 
 Players need `neotab.performance` to change these settings.
 
+## Header Colors
+
+Change the animated header colors in-game:
+
+```text
+/tab color purple
+/tab color red
+/tab color green
+/tab color gold
+/tab color #AA00AA,#BA55D3,#DDA0DD
+```
+
+Custom color lists accept 1-5 hex colors separated by commas. The command saves the colors to `custom-colors` in `config.yml` and applies them live.
+
+Players need `neotab.color` to change header colors.
+
 ## Control Panel
 
 Open the ingame control panel with:
@@ -123,8 +141,8 @@ Open the ingame control panel with:
 The first GUI version has three categories:
 
 - `Tab`: change the tab name through chat input and select existing animation styles.
-- `Scoreboard`: toggle a basic sidebar and edit lines 1-15.
-- `Extras`: select existing performance presets and control a simple ActionBar Timer.
+- `Scoreboard`: toggle a basic sidebar, edit lines 1-15, and save/load presets.
+- `Extras`: select existing performance presets and control a simple ActionBar Timer, including custom durations through chat input.
 
 GUI items cannot be taken or moved.
 
@@ -144,6 +162,8 @@ Basic commands:
 /tab sb load <name>
 /tab sb list
 ```
+
+The GUI can also save the current scoreboard as a named preset and load saved presets.
 
 Supported built-in placeholders:
 
@@ -170,6 +190,8 @@ PlaceholderAPI remains optional and is only used when installed and enabled.
 ```
 
 Duration examples: `30s`, `5m`, `10m`, `1h`.
+
+The GUI includes fixed 5 minute and 10 minute starts plus a custom duration chat input.
 
 ## Header Bold
 
