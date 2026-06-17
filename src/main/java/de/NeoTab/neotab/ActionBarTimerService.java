@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,6 +20,7 @@ public final class ActionBarTimerService implements Listener {
     private final NeoTab plugin;
     private final ConfigManager configManager;
     private final Map<UUID, TimerSession> sessions;
+    private final LegacyComponentSerializer legacySerializer;
 
     private BukkitTask task;
 
@@ -27,6 +28,7 @@ public final class ActionBarTimerService implements Listener {
         this.plugin = plugin;
         this.configManager = configManager;
         sessions = new HashMap<>();
+        legacySerializer = LegacyComponentSerializer.legacySection();
     }
 
     public boolean start(Player player, int durationSeconds) {
@@ -155,7 +157,7 @@ public final class ActionBarTimerService implements Listener {
 
             int remainingSeconds = session.remainingSeconds() - 1;
             if (remainingSeconds <= 0) {
-                player.sendActionBar(Component.text("Event starts now", NamedTextColor.GREEN));
+                player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().endedFormat(), 0, false));
                 iterator.remove();
                 continue;
             }
@@ -177,11 +179,25 @@ public final class ActionBarTimerService implements Listener {
     }
 
     private void send(Player player, int remainingSeconds) {
-        player.sendActionBar(Component.text("Event starts in " + formatDuration(remainingSeconds), NamedTextColor.LIGHT_PURPLE));
+        player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().runningFormat(), remainingSeconds, true));
     }
 
     private void sendPaused(Player player, int remainingSeconds) {
-        player.sendActionBar(Component.text("Timer paused at " + formatDuration(remainingSeconds), NamedTextColor.YELLOW));
+        player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().pausedFormat(), remainingSeconds, true));
+    }
+
+    private Component renderTimerText(String format, int remainingSeconds, boolean appendTimeIfMissing) {
+        String rawFormat = format == null || format.isBlank() ? "{time}" : format;
+        if (appendTimeIfMissing && !rawFormat.contains("{time}")) {
+            rawFormat = rawFormat + " {time}";
+        }
+
+        String resolved = rawFormat
+            .replace("{time}", formatDuration(remainingSeconds))
+            .replace("{seconds}", Integer.toString(Math.max(0, remainingSeconds)));
+        String plain = configManager.toPlain(resolved, "actionbar-timer");
+        String legacy = AnimationUtils.buildLegacyText(plain, configManager.getCustomColors(), AnimationUtils.Style.STATIC, 0, false);
+        return legacySerializer.deserialize(legacy);
     }
 
     private String formatDuration(int seconds) {

@@ -71,19 +71,20 @@ public final class ConfigManager {
         ScoreboardConfig scoreboardConfig = new ScoreboardConfig(
             config.getBoolean("scoreboard.enabled", false),
             Math.max(1, config.getInt("scoreboard.update-interval-ticks", 20)),
-            validateMiniMessage(config.getString("scoreboard.title", "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"), "scoreboard.title"),
+            validateMiniMessage(config.getString("scoreboard.title", "NeoTab"), "scoreboard.title"),
+            config.getBoolean("scoreboard.title-animation.enabled", true),
+            resolveStyle(config.getString("scoreboard.title-animation.style", "static"), AnimationUtils.Style.STATIC, "scoreboard.title-animation.style"),
             loadScoreboardLines(config),
             loadScoreboardPresets(config)
         );
         ActionBarTimerConfig actionBarTimerConfig = new ActionBarTimerConfig(
-            config.getBoolean("extras.actionbar-timer.enabled", true)
+            config.getBoolean("extras.actionbar-timer.enabled", true),
+            validateMiniMessage(config.getString("extras.actionbar-timer.running-format", "{time}"), "extras.actionbar-timer.running-format"),
+            validateMiniMessage(config.getString("extras.actionbar-timer.paused-format", "Paused {time}"), "extras.actionbar-timer.paused-format"),
+            validateMiniMessage(config.getString("extras.actionbar-timer.ended-format", "timer ends"), "extras.actionbar-timer.ended-format")
         );
 
-        AnimationUtils.Style style = AnimationUtils.Style.fromString(config.getString("animation-style", "rainbow"));
-        if (style == null) {
-            style = AnimationUtils.Style.RAINBOW;
-            logWarn("<color:#FF55FF>Invalid animation-style in config.yml; falling back to rainbow.</color>");
-        }
+        AnimationUtils.Style style = resolveStyle(config.getString("animation-style", "rainbow"), AnimationUtils.Style.RAINBOW, "animation-style");
 
         List<TextColor> colors = parseColors(config.getStringList("custom-colors"));
         if (colors.isEmpty()) {
@@ -133,6 +134,12 @@ public final class ConfigManager {
         reload();
     }
 
+    public void setCustomColors(List<String> colors) {
+        plugin.getConfig().set("custom-colors", colors);
+        plugin.saveConfig();
+        reload();
+    }
+
     public void setPerformancePreset(String presetName, int intervalTicks) {
         String normalizedPreset = normalizePerformancePresetName(presetName);
         int clampedTicks = clampPerformanceTicks(intervalTicks);
@@ -162,6 +169,26 @@ public final class ConfigManager {
 
     public void setScoreboardTitle(String title) {
         plugin.getConfig().set("scoreboard.title", title);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setScoreboardUpdateIntervalTicks(int intervalTicks) {
+        plugin.getConfig().set("scoreboard.update-interval-ticks", clampPerformanceTicks(intervalTicks));
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setScoreboardTitleStyle(AnimationUtils.Style style) {
+        FileConfiguration config = plugin.getConfig();
+        config.set("scoreboard.title-animation.enabled", true);
+        config.set("scoreboard.title-animation.style", style.id());
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setScoreboardTitleAnimationEnabled(boolean enabled) {
+        plugin.getConfig().set("scoreboard.title-animation.enabled", enabled);
         plugin.saveConfig();
         reload();
     }
@@ -231,6 +258,41 @@ public final class ConfigManager {
         return true;
     }
 
+    public boolean deleteScoreboardPreset(String presetName) {
+        String normalizedPreset = normalizePerformancePresetName(presetName);
+        if (!isValidPerformancePresetName(normalizedPreset)) {
+            return false;
+        }
+
+        FileConfiguration config = plugin.getConfig();
+        ConfigurationSection section = config.getConfigurationSection("scoreboard.presets");
+        if (section == null) {
+            return false;
+        }
+
+        String configuredKey = null;
+        for (String key : section.getKeys(false)) {
+            if (normalizePerformancePresetName(key).equals(normalizedPreset)) {
+                configuredKey = key;
+                break;
+            }
+        }
+        if (configuredKey == null) {
+            return false;
+        }
+
+        config.set("scoreboard.presets." + configuredKey, null);
+        plugin.saveConfig();
+        reload();
+        return true;
+    }
+
+    public void setActionBarTimerRunningFormat(String format) {
+        plugin.getConfig().set("extras.actionbar-timer.running-format", format);
+        plugin.saveConfig();
+        reload();
+    }
+
     public Integer getPerformancePresetTicks(String presetName) {
         String normalizedPreset = normalizePerformancePresetName(presetName);
         Integer ticks = snapshot.get().performancePresets().get(normalizedPreset);
@@ -258,7 +320,7 @@ public final class ConfigManager {
             raw = "<color:#FF55FF>Missing message: " + key + "</color>";
         }
 
-        String resolved = replacePlaceholders(raw, placeholders);
+        String resolved = replacePlaceholders(normalizeMessageTheme(raw), placeholders);
         return deserialize(resolved, "messages." + key);
     }
 
@@ -383,6 +445,16 @@ public final class ConfigManager {
         return colors;
     }
 
+    private AnimationUtils.Style resolveStyle(String input, AnimationUtils.Style fallback, String path) {
+        AnimationUtils.Style style = AnimationUtils.Style.fromString(input);
+        if (style != null) {
+            return style;
+        }
+
+        logWarn("<color:#FF55FF>Invalid " + path + " in config.yml; falling back to " + fallback.id() + ".</color>");
+        return fallback;
+    }
+
     private Map<String, Integer> loadPerformancePresets(FileConfiguration config) {
         LinkedHashMap<String, Integer> presets = new LinkedHashMap<>();
         presets.put("smooth", 3);
@@ -431,9 +503,9 @@ public final class ConfigManager {
             configuredLines = config.getStringList("scoreboard.lines");
         } else {
             configuredLines = List.of(
-                "&7Online: &b{online}/{max}",
-                "&7Ping: &e{ping}ms",
-                "&7RAM: &a{ram_used}/{ram_max} MB"
+                "&7Online: &d{online}&7/&d{max}",
+                "&7Ping: &d{ping}ms",
+                "&7RAM: &d{ram_used}&7/&d{ram_max} MB"
             );
         }
 
@@ -462,7 +534,7 @@ public final class ConfigManager {
             }
 
             String path = "scoreboard.presets." + key;
-            String title = validateMiniMessage(config.getString(path + ".title", "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"), path + ".title");
+            String title = validateMiniMessage(config.getString(path + ".title", "NeoTab"), path + ".title");
             ArrayList<String> lines = new ArrayList<>();
             for (String line : config.getStringList(path + ".lines")) {
                 if (lines.size() >= MAX_SCOREBOARD_LINES) {
@@ -536,6 +608,12 @@ public final class ConfigManager {
             resolved = resolved.replace("{" + entry.getKey() + "}", entry.getValue());
         }
         return resolved;
+    }
+
+    private String normalizeMessageTheme(String input) {
+        return input
+            .replace("<gradient:#00ffaa:#0088ff>", "<gradient:#AA00AA:#BA55D3>")
+            .replace("<gradient:#00FFAA:#0088FF>", "<gradient:#AA00AA:#BA55D3>");
     }
 
     private String translateLegacyCodes(String input) {
@@ -633,6 +711,8 @@ public final class ConfigManager {
         boolean enabled,
         int updateIntervalTicks,
         String title,
+        boolean titleAnimationEnabled,
+        AnimationUtils.Style titleAnimationStyle,
         List<String> lines,
         Map<String, ScoreboardPreset> presets
     ) {
@@ -645,7 +725,10 @@ public final class ConfigManager {
     }
 
     public record ActionBarTimerConfig(
-        boolean enabled
+        boolean enabled,
+        String runningFormat,
+        String pausedFormat,
+        String endedFormat
     ) {
     }
 }

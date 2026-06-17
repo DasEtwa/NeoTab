@@ -23,8 +23,19 @@ public final class AnimationUtils {
             return config.toLegacy(serverNameRaw, "server-name");
         }
 
-        boolean bold = config.isHeaderBoldAnimationEnabled();
-        return switch (config.getStyle()) {
+        return buildLegacyText(plain, colors, config.getStyle(), tick, config.isHeaderBoldAnimationEnabled());
+    }
+
+    public static String buildLegacyText(String plain, List<TextColor> colors, Style style, int tick, boolean bold) {
+        if (plain == null || plain.isBlank()) {
+            return "";
+        }
+        if (colors == null || colors.isEmpty()) {
+            return plain;
+        }
+
+        Style resolvedStyle = style == null ? Style.STATIC : style;
+        return switch (resolvedStyle) {
             case RAINBOW -> buildRainbow(plain, colors, tick, bold);
             case PURPLE_PULSE -> buildPulse(plain, colors, tick, bold);
             case GRADIENT_WAVE -> buildGradientWave(plain, colors, tick, bold);

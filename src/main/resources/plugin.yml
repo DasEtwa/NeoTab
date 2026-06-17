@@ -9,7 +9,7 @@ author: muffinonboard aka DasEtwa
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style|performance|gui|sb|timer>
+    usage: /tab <reload|setname|style|color|performance|gui|sb|timer>
     aliases: [neotab]
 
 permissions:
@@ -20,6 +20,7 @@ permissions:
       neotab.reload: true
       neotab.setname: true
       neotab.style: true
+      neotab.color: true
       neotab.performance: true
       neotab.gui: true
       neotab.scoreboard: true
@@ -37,6 +38,9 @@ permissions:
     default: op
   neotab.style:
     description: Allows changing animation style
+    default: op
+  neotab.color:
+    description: Allows changing header animation colors
     default: op
   neotab.performance:
     description: Allows changing and saving NeoTab performance presets
@@ -73,6 +77,7 @@ permissions:
       neotab.reload: true
       neotab.setname: true
       neotab.style: true
+      neotab.color: true
       neotab.performance: true
       neotab.gui: true
       neotab.scoreboard: true

@@ -22,15 +22,21 @@ gui:
 scoreboard:
   enabled: false
   update-interval-ticks: 20
-  title: "<gradient:#00ffaa:#0088ff>NeoTab</gradient>"
+  title: "NeoTab"
+  title-animation:
+    enabled: true
+    style: "static"          # rainbow, purple-pulse, gradient-wave, static
   lines:
-    - "&7Online: &b{online}/{max}"
-    - "&7Ping: &e{ping}ms"
-    - "&7RAM: &a{ram_used}/{ram_max} MB"
+    - "&7Online: &d{online}&7/&d{max}"
+    - "&7Ping: &d{ping}ms"
+    - "&7RAM: &d{ram_used}&7/&d{ram_max} MB"
   presets: {}
 extras:
   actionbar-timer:
     enabled: true
+    running-format: "{time}"
+    paused-format: "Paused {time}"
+    ended-format: "timer ends"
 custom-colors:
   - "#AA00AA"
   - "#9932CC"

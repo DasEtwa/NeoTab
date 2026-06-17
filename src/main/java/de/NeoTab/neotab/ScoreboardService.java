@@ -48,6 +48,7 @@ public final class ScoreboardService implements Listener {
     private final Set<UUID> disabledPlayers;
 
     private BukkitTask task;
+    private int animationTick;
 
     public ScoreboardService(NeoTab plugin, ConfigManager configManager) {
         this.plugin = plugin;
@@ -101,7 +102,7 @@ public final class ScoreboardService implements Listener {
         if (enabled) {
             enabledPlayers.add(uuid);
             disabledPlayers.remove(uuid);
-            update(player);
+            update(player, buildRenderContext(), animationTick);
             return;
         }
 
@@ -120,6 +121,21 @@ public final class ScoreboardService implements Listener {
     public void setTitle(String title) {
         configManager.setScoreboardTitle(title);
         updateAll();
+    }
+
+    public void setTitleStyle(AnimationUtils.Style style) {
+        configManager.setScoreboardTitleStyle(style);
+        updateAll();
+    }
+
+    public void setTitleAnimationEnabled(boolean enabled) {
+        configManager.setScoreboardTitleAnimationEnabled(enabled);
+        updateAll();
+    }
+
+    public void setUpdateIntervalTicks(int intervalTicks) {
+        configManager.setScoreboardUpdateIntervalTicks(intervalTicks);
+        restart();
     }
 
     public void setLine(int lineNumber, String text) {
@@ -149,6 +165,10 @@ public final class ScoreboardService implements Listener {
         return loaded;
     }
 
+    public boolean deletePreset(String presetName) {
+        return configManager.deleteScoreboardPreset(presetName);
+    }
+
     public List<String> listPresets() {
         return new ArrayList<>(configManager.getScoreboardConfig().presets().keySet());
     }
@@ -162,9 +182,11 @@ public final class ScoreboardService implements Listener {
     }
 
     public void updateAll() {
+        ScoreboardRenderContext renderContext = buildRenderContext();
+        int titleTick = animationTick++;
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (isEnabled(player)) {
-                update(player);
+                update(player, renderContext, titleTick);
             } else {
                 clear(player);
             }
@@ -173,7 +195,7 @@ public final class ScoreboardService implements Listener {
 
     public void handleJoin(Player player) {
         if (isEnabled(player)) {
-            Bukkit.getScheduler().runTaskLater(plugin, () -> update(player), 5L);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> update(player, buildRenderContext(), animationTick), 5L);
         }
     }
 
@@ -194,11 +216,11 @@ public final class ScoreboardService implements Listener {
         task = null;
     }
 
-    private void update(Player player) {
+    private void update(Player player, ScoreboardRenderContext renderContext, int titleTick) {
         BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession());
         ConfigManager.ScoreboardConfig scoreboardConfig = configManager.getScoreboardConfig();
 
-        session.objective().setDisplayName(renderTitle(player, scoreboardConfig.title()));
+        session.objective().setDisplayName(renderTitle(player, scoreboardConfig, renderContext, titleTick));
         List<String> lines = scoreboardConfig.lines();
         int visibleLineCount = Math.min(lines.size(), ConfigManager.MAX_SCOREBOARD_LINES);
 
@@ -206,7 +228,7 @@ public final class ScoreboardService implements Listener {
             Team team = session.teams().get(index);
             String entry = UNIQUE_ENTRIES[index];
             if (index < visibleLineCount) {
-                team.setPrefix(renderLine(player, lines.get(index)));
+                team.setPrefix(renderLine(player, lines.get(index), renderContext));
                 session.objective().getScore(entry).setScore(ConfigManager.MAX_SCOREBOARD_LINES - index);
             } else {
                 team.setPrefix("");
@@ -243,41 +265,62 @@ public final class ScoreboardService implements Listener {
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
-    private String renderTitle(Player player, String rawTitle) {
-        return trimScoreboardText(renderText(player, rawTitle, "scoreboard.title"));
-    }
-
-    private String renderLine(Player player, String rawLine) {
-        return trimScoreboardText(renderText(player, rawLine, "scoreboard.line"));
-    }
-
-    private String renderText(Player player, String rawText, String context) {
-        String resolved = replaceInternalPlaceholders(player, rawText == null ? "" : rawText);
-        if (configManager.isPlaceholderApiEnabled()) {
-            resolved = placeholderSupport.setPlaceholders(player, resolved);
-        }
-        return configManager.toLegacy(resolved, context);
-    }
-
-    private String replaceInternalPlaceholders(Player player, String input) {
+    private ScoreboardRenderContext buildRenderContext() {
         Runtime runtime = Runtime.getRuntime();
         long usedMb = (runtime.totalMemory() - runtime.freeMemory()) / 0x100000L;
         long maxMb = Math.max(1L, runtime.maxMemory() / 0x100000L);
         int percent = (int) Math.round((double) usedMb / (double) maxMb * 100.0);
         int online = Bukkit.getOnlinePlayers().size();
         int max = Math.max(1, Bukkit.getMaxPlayers());
-        int ping = Math.max(0, player.getPing());
         int avgPing = computeAveragePing();
+        return new ScoreboardRenderContext(online, max, usedMb, maxMb, percent, avgPing);
+    }
+
+    private String renderTitle(Player player, ConfigManager.ScoreboardConfig scoreboardConfig, ScoreboardRenderContext renderContext, int titleTick) {
+        if (!scoreboardConfig.titleAnimationEnabled()) {
+            return trimScoreboardText(renderText(player, scoreboardConfig.title(), "scoreboard.title", renderContext));
+        }
+
+        String resolved = replaceInternalPlaceholders(player, scoreboardConfig.title(), renderContext);
+        if (configManager.isPlaceholderApiEnabled()) {
+            resolved = placeholderSupport.setPlaceholders(player, resolved);
+        }
+        String plain = configManager.toPlain(resolved, "scoreboard.title");
+        return trimScoreboardText(AnimationUtils.buildLegacyText(
+            plain,
+            configManager.getCustomColors(),
+            scoreboardConfig.titleAnimationStyle(),
+            titleTick,
+            false
+        ));
+    }
+
+    private String renderLine(Player player, String rawLine, ScoreboardRenderContext renderContext) {
+        return trimScoreboardText(renderText(player, rawLine, "scoreboard.line", renderContext));
+    }
+
+    private String renderText(Player player, String rawText, String context, ScoreboardRenderContext renderContext) {
+        String resolved = replaceInternalPlaceholders(player, rawText == null ? "" : rawText, renderContext);
+        if (configManager.isPlaceholderApiEnabled()) {
+            resolved = placeholderSupport.setPlaceholders(player, resolved);
+        }
+        return configManager.toLegacy(resolved, context);
+    }
+
+    private String replaceInternalPlaceholders(Player player, String input, ScoreboardRenderContext renderContext) {
+        int ping = Math.max(0, player.getPing());
 
         return input
-            .replace("{online}", Integer.toString(online))
-            .replace("{max}", Integer.toString(max))
+            .replace("{online}", Integer.toString(renderContext.online()))
+            .replace("{max}", Integer.toString(renderContext.max()))
             .replace("{ping}", Integer.toString(ping))
-            .replace("{avg_ping}", Integer.toString(avgPing))
-            .replace("{avgPing}", Integer.toString(avgPing))
-            .replace("{ram_used}", Long.toString(usedMb))
-            .replace("{ram_max}", Long.toString(maxMb))
-            .replace("{ram_percent}", Integer.toString(percent))
+            .replace("{avg_ping}", Integer.toString(renderContext.avgPing()))
+            .replace("{avgPing}", Integer.toString(renderContext.avgPing()))
+            .replace("{ram_used}", Long.toString(renderContext.usedMb()))
+            .replace("{ram_max}", Long.toString(renderContext.maxMb()))
+            .replace("{ram_percent}", Integer.toString(renderContext.percent()))
+            .replace("{player}", player.getName())
+            .replace("{player_name}", player.getName())
             .replace("{server_name}", configManager.getServerNamePlain());
     }
 
@@ -302,6 +345,16 @@ public final class ScoreboardService implements Listener {
         Scoreboard scoreboard,
         Objective objective,
         Map<Integer, Team> teams
+    ) {
+    }
+
+    private record ScoreboardRenderContext(
+        int online,
+        int max,
+        long usedMb,
+        long maxMb,
+        int percent,
+        int avgPing
     ) {
     }
 }

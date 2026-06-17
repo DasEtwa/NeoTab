@@ -106,6 +106,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             case "performance" -> {
                 return handlePerformance(sender, args);
             }
+            case "color", "colour" -> {
+                return handleColor(sender, args);
+            }
             case "gui" -> {
                 return handleGui(sender);
             }
@@ -132,6 +135,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "setname", "neotab.setname", prefix, sender);
             addIfAllowed(completions, "style", "neotab.style", prefix, sender);
             addIfAllowed(completions, "performance", "neotab.performance", prefix, sender);
+            addIfAllowed(completions, "color", "neotab.color", prefix, sender);
             addIfAllowed(completions, "gui", "neotab.gui", prefix, sender);
             addIfAllowed(completions, "sb", "neotab.scoreboard", prefix, sender);
             addIfAllowed(completions, "timer", "neotab.timer", prefix, sender);
@@ -145,6 +149,18 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 if (id.startsWith(prefix)) {
                     completions.add(id);
                 }
+            }
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("color") && sender.hasPermission("neotab.color")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            for (String preset : HeaderColorPalette.PRESETS.keySet()) {
+                if (preset.startsWith(prefix)) {
+                    completions.add(preset);
+                }
+            }
+            if ("#AA00AA,#BA55D3".startsWith(prefix)) {
+                completions.add("#AA00AA,#BA55D3");
             }
         }
 
@@ -176,6 +192,42 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
 
         return completions;
+    }
+
+    private boolean handleColor(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.color")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("color-usage"));
+            return true;
+        }
+
+        String input = joinArgs(args, 1).trim();
+        String presetName = input.toLowerCase(Locale.ROOT);
+        List<String> colors = HeaderColorPalette.PRESETS.get(presetName);
+        String displayName = presetName;
+
+        if (colors == null) {
+            colors = HeaderColorPalette.parseCustomColors(input);
+            displayName = "custom";
+        }
+
+        if (colors == null) {
+            sender.sendMessage(configManager.message("color-invalid"));
+            return true;
+        }
+
+        configManager.setCustomColors(colors);
+        tabUpdater.restart();
+        tabUpdater.updateAllNow();
+        scoreboardService.updateAll();
+        sender.sendMessage(configManager.message(
+            "color-success",
+            Map.of("preset", displayName, "colors", String.join(", ", colors))
+        ));
+        return true;
     }
 
     private boolean handleGui(CommandSender sender) {
@@ -247,6 +299,37 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 scoreboardService.setTitle(joinArgs(args, 2));
                 sender.sendMessage(configManager.message("scoreboard-title-changed"));
                 return true;
+            }
+            case "style" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-style-usage"));
+                    return true;
+                }
+                String input = args[2].toLowerCase(Locale.ROOT);
+                if (input.equals("off")) {
+                    scoreboardService.setTitleAnimationEnabled(false);
+                    sender.sendMessage(configManager.message("scoreboard-style-changed", Map.of("style", "off")));
+                    return true;
+                }
+                AnimationUtils.Style style = AnimationUtils.Style.fromString(input);
+                if (style == null) {
+                    sender.sendMessage(configManager.message("style-invalid"));
+                    return true;
+                }
+                scoreboardService.setTitleStyle(style);
+                sender.sendMessage(configManager.message("scoreboard-style-changed", Map.of("style", style.id())));
+                return true;
+            }
+            case "interval" -> {
+                if (!sender.hasPermission("neotab.scoreboard.edit")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                return handleScoreboardInterval(sender, args);
             }
             case "line" -> {
                 if (!sender.hasPermission("neotab.scoreboard.edit")) {
@@ -328,6 +411,23 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(configManager.message("scoreboard-preset-saved", Map.of("name", presetName)));
                 return true;
             }
+            case "delete", "remove" -> {
+                if (!sender.hasPermission("neotab.scoreboard.presets")) {
+                    sender.sendMessage(configManager.message("no-permission"));
+                    return true;
+                }
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("scoreboard-delete-usage"));
+                    return true;
+                }
+                String presetName = configManager.normalizePerformancePresetName(args[2]);
+                if (!scoreboardService.deletePreset(presetName)) {
+                    sender.sendMessage(configManager.message("scoreboard-preset-missing"));
+                    return true;
+                }
+                sender.sendMessage(configManager.message("scoreboard-preset-deleted", Map.of("name", presetName)));
+                return true;
+            }
             case "list" -> {
                 if (!sender.hasPermission("neotab.scoreboard.presets")) {
                     sender.sendMessage(configManager.message("no-permission"));
@@ -350,16 +450,27 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(configManager.message("no-permission"));
             return true;
         }
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(configManager.message("player-only"));
-            return true;
-        }
         if (args.length < 2) {
             sender.sendMessage(configManager.message("timer-usage"));
             return true;
         }
 
         String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("text")) {
+            if (args.length < 3) {
+                sender.sendMessage(configManager.message("timer-text-usage"));
+                return true;
+            }
+            configManager.setActionBarTimerRunningFormat(joinArgs(args, 2));
+            sender.sendMessage(configManager.message("timer-text-changed"));
+            return true;
+        }
+
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.message("player-only"));
+            return true;
+        }
+
         switch (action) {
             case "start" -> {
                 if (args.length < 3) {
@@ -395,6 +506,48 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
         }
+    }
+
+    private boolean handleScoreboardInterval(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(configManager.message("scoreboard-interval-usage"));
+            return true;
+        }
+
+        String presetName = configManager.normalizePerformancePresetName(args[2]);
+        Integer ticks;
+        if (presetName.equals("custom")) {
+            if (args.length < 4) {
+                sender.sendMessage(configManager.message("scoreboard-interval-usage"));
+                return true;
+            }
+            ticks = parseTicks(args[3]);
+        } else {
+            ticks = configManager.getPerformancePresetTicks(presetName);
+        }
+
+        if (ticks == null && presetName.equals("custom")) {
+            sender.sendMessage(configManager.message(
+                "performance-invalid-ticks",
+                Map.of(
+                    "min", String.valueOf(ConfigManager.MIN_PERFORMANCE_INTERVAL_TICKS),
+                    "max", String.valueOf(ConfigManager.MAX_PERFORMANCE_INTERVAL_TICKS)
+                )
+            ));
+            return true;
+        }
+        if (ticks == null) {
+            sender.sendMessage(configManager.message("performance-invalid-preset"));
+            return true;
+        }
+
+        String displayName = presetName.equals("custom") ? "custom" : presetName;
+        scoreboardService.setUpdateIntervalTicks(ticks);
+        sender.sendMessage(configManager.message(
+            "scoreboard-interval-success",
+            Map.of("preset", displayName, "ticks", Integer.toString(configManager.getScoreboardConfig().updateIntervalTicks()))
+        ));
+        return true;
     }
 
     private void setScoreboardEnabled(CommandSender sender, boolean enabled) {
@@ -531,7 +684,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private void completeScoreboard(List<String> completions, String[] args) {
         if (args.length == 2) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
-            for (String option : List.of("on", "off", "toggle", "title", "line", "clear", "clearall", "preset", "save", "load", "list")) {
+            for (String option : List.of("on", "off", "toggle", "title", "style", "interval", "line", "clear", "clearall", "preset", "save", "load", "delete", "list")) {
                 if (option.startsWith(prefix)) {
                     completions.add(option);
                 }
@@ -544,12 +697,34 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                     completions.add(value);
                 }
             }
-        } else if (args.length == 3 && (args[1].equalsIgnoreCase("preset") || args[1].equalsIgnoreCase("load"))) {
+        } else if (args.length == 3 && (args[1].equalsIgnoreCase("preset") || args[1].equalsIgnoreCase("load") || args[1].equalsIgnoreCase("delete") || args[1].equalsIgnoreCase("remove"))) {
             String prefix = args[2].toLowerCase(Locale.ROOT);
             for (String preset : scoreboardService.listPresets()) {
                 if (preset.startsWith(prefix)) {
                     completions.add(preset);
                 }
+            }
+        } else if (args.length == 3 && args[1].equalsIgnoreCase("style")) {
+            String prefix = args[2].toLowerCase(Locale.ROOT);
+            addPerformanceCompletion(completions, "off", prefix);
+            for (AnimationUtils.Style style : AnimationUtils.Style.values()) {
+                addPerformanceCompletion(completions, style.id(), prefix);
+            }
+        } else if (args[1].equalsIgnoreCase("interval")) {
+            if (args.length == 3) {
+                String prefix = args[2].toLowerCase(Locale.ROOT);
+                addPerformanceCompletion(completions, "custom", prefix);
+                for (String preset : configManager.getPerformancePresets().keySet()) {
+                    addPerformanceCompletion(completions, preset, prefix);
+                }
+                for (String preset : configManager.getSavedPerformancePresets().keySet()) {
+                    addPerformanceCompletion(completions, preset, prefix);
+                }
+            } else if (args.length == 4 && args[2].equalsIgnoreCase("custom")) {
+                String prefix = args[3].toLowerCase(Locale.ROOT);
+                addPerformanceCompletion(completions, "10", prefix);
+                addPerformanceCompletion(completions, "20", prefix);
+                addPerformanceCompletion(completions, "40", prefix);
             }
         }
     }
@@ -557,7 +732,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private void completeTimer(List<String> completions, String[] args) {
         if (args.length == 2) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
-            for (String option : List.of("start", "stop", "pause", "resume")) {
+            for (String option : List.of("start", "stop", "pause", "resume", "text")) {
                 if (option.startsWith(prefix)) {
                     completions.add(option);
                 }

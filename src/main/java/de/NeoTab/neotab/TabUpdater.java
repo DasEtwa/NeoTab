@@ -293,17 +293,8 @@ public final class TabUpdater {
             return nameComponent;
         }
 
-        Component prefixComponent = deserializeLuckPermsMeta(prefix, "luckperms-prefix");
-        Component suffixComponent = deserializeLuckPermsMeta(suffix, "luckperms-suffix");
-        return prefixComponent.append(nameComponent).append(suffixComponent);
-    }
-
-    private Component deserializeLuckPermsMeta(String input, String context) {
-        if (input == null || input.isBlank()) {
-            return Component.empty();
-        }
-
-        return configManager.deserialize(input, context);
+        String combinedName = (prefix == null ? "" : prefix) + player.getName() + (suffix == null ? "" : suffix);
+        return configManager.deserialize(combinedName, "luckperms-player-list-name");
     }
 
     public record TabSnapshot(int tickValue, String footerMiniMessageBase) {
