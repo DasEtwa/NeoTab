@@ -11,7 +11,7 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 | `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
-| `1.2.0-Beta.1` | Beta | `1.20.6+` target | Starts the ingame GUI foundation, scoreboard controls, and ActionBar Timer. |
+| `1.2.0-Beta.2` | Beta | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
 
 Version docs:
 
@@ -29,8 +29,12 @@ Version docs:
 - In-game performance presets for tab update intervals
 - In-game header color presets and custom color lists
 - Ingame control panel with `/tab gui`
-- Basic per-player sidebar scoreboard foundation
-- Simple ActionBar Timer
+- Direct GUI color controls for `purple`, `red`, `green`, `gold`, and custom hex colors
+- Per-player sidebar scoreboard controls with editable lines, line presets, named presets, and deletable presets
+- Separate update intervals for tab and scoreboard rendering
+- Optional animated scoreboard title using the same animation styles as the tab header
+- Configurable ActionBar Timer text with `{time}` and `timer ends` completion text
+- Shared active color palette for tab, scoreboard, chat messages, and timer output
 - Paper `1.21` API target with Java 21 bytecode
 
 ## Installation
@@ -50,7 +54,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.2.0-Beta.1.jar
+build/libs/NeoTab-1.2.0-Beta.2.jar
 ```
 
 ## PlaceholderAPI
@@ -138,11 +142,11 @@ Open the ingame control panel with:
 /tab gui
 ```
 
-The first GUI version has three categories:
+The GUI has three categories:
 
-- `Tab`: change the tab name through chat input and select existing animation styles.
-- `Scoreboard`: toggle a basic sidebar, edit lines 1-15, and save/load presets.
-- `Extras`: select existing performance presets and control a simple ActionBar Timer, including custom durations through chat input.
+- `Tab`: change the tab name, select animation styles, and set color presets or custom hex colors.
+- `Scoreboard`: toggle the sidebar, edit lines 1-15, pick line presets, save/load/delete presets, and set the scoreboard title animation.
+- `Extras`: set tab and scoreboard update intervals independently and control the ActionBar Timer, including custom durations and custom timer text.
 
 GUI items cannot be taken or moved.
 
@@ -155,15 +159,27 @@ Basic commands:
 /tab sb off
 /tab sb toggle
 /tab sb title <text>
+/tab sb style <off|rainbow|purple-pulse|gradient-wave|static>
+/tab sb interval <smooth|balanced|light|custom ticks>
 /tab sb line <1-15> <text>
 /tab sb clear <1-15>
 /tab sb clearall
 /tab sb save <name>
 /tab sb load <name>
+/tab sb delete <name>
 /tab sb list
 ```
 
-The GUI can also save the current scoreboard as a named preset and load saved presets.
+The GUI can also edit scoreboard lines through presets:
+
+- online players
+- player name
+- ping
+- RAM
+- custom text
+- clear line
+
+Named scoreboard presets can be saved, loaded, and deleted from the GUI or commands.
 
 Supported built-in placeholders:
 
@@ -176,6 +192,8 @@ Supported built-in placeholders:
 {ram_max}
 {ram_percent}
 {server_name}
+{player}
+{player_name}
 ```
 
 PlaceholderAPI remains optional and is only used when installed and enabled.
@@ -187,11 +205,12 @@ PlaceholderAPI remains optional and is only used when installed and enabled.
 /tab timer stop
 /tab timer pause
 /tab timer resume
+/tab timer text <text with {time}>
 ```
 
 Duration examples: `30s`, `5m`, `10m`, `1h`.
 
-The GUI includes fixed 5 minute and 10 minute starts plus a custom duration chat input.
+The GUI includes fixed 5 minute and 10 minute starts plus a custom duration chat input. The running timer text is configurable and defaults to only showing `{time}`. When the countdown finishes, NeoTab shows `timer ends`.
 
 ## Header Bold
 
@@ -207,4 +226,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.2.0-Beta.1`.
+- The current source version is `1.2.0-Beta.2`.
