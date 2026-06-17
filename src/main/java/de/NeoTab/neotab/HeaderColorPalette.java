@@ -1,6 +1,7 @@
 package de.NeoTab.neotab;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -48,6 +49,6 @@ final class HeaderColorPalette {
         presets.put("red", List.of("#7F0000", "#B00020", "#FF1744", "#FF6B6B", "#FFCDD2"));
         presets.put("green", List.of("#005F2F", "#00A86B", "#00E676", "#69F0AE", "#B9F6CA"));
         presets.put("gold", List.of("#8A5A00", "#C88719", "#FFC107", "#FFD54F", "#FFF176"));
-        return Map.copyOf(presets);
+        return Collections.unmodifiableMap(presets);
     }
 }

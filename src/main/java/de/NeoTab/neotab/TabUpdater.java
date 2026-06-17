@@ -113,6 +113,7 @@ public final class TabUpdater {
 
     public void clearAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
+            player.playerListName(Component.text(player.getName()));
             player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
         }
     }
@@ -120,7 +121,11 @@ public final class TabUpdater {
     private TabSnapshot buildSnapshot(int tickValue, int online, int max) {
         RamStats stats = readRam();
         String footerMiniMessageBase = AnimationUtils.buildFooterMiniMessageBase(configManager, stats, online, max);
-        return new TabSnapshot(tickValue, footerMiniMessageBase);
+        String serverNameRaw = configManager.getServerNameRaw();
+        Component sharedHeaderComponent = shouldShareHeader(serverNameRaw)
+            ? legacySerializer.deserialize(AnimationUtils.buildLegacyHeader(configManager, tickValue, serverNameRaw))
+            : null;
+        return new TabSnapshot(tickValue, footerMiniMessageBase, serverNameRaw, sharedHeaderComponent);
     }
 
     private void applySnapshot(TabSnapshot snapshot) {
@@ -134,9 +139,9 @@ public final class TabUpdater {
         PlayerAdapter<Player> playerAdapter = resolvePlayerAdapter(useLuckPerms);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            String serverNameRaw = applyPlaceholders(player, configManager.getServerNameRaw());
-            String headerLegacy = AnimationUtils.buildLegacyHeader(configManager, snapshot.tickValue(), serverNameRaw);
-            Component headerComponent = legacySerializer.deserialize(headerLegacy);
+            Component headerComponent = snapshot.sharedHeaderComponent() == null
+                ? legacySerializer.deserialize(AnimationUtils.buildLegacyHeader(configManager, snapshot.tickValue(), applyPlaceholders(player, snapshot.serverNameRaw())))
+                : snapshot.sharedHeaderComponent();
 
             int playerPing = Math.max(0, player.getPing());
             String footerMiniMessage = snapshot.footerMiniMessageBase()
@@ -158,6 +163,10 @@ public final class TabUpdater {
             return input;
         }
         return placeholderSupport.setPlaceholders(player, input);
+    }
+
+    private boolean shouldShareHeader(String input) {
+        return !configManager.isPlaceholderApiEnabled() || input == null || input.indexOf('%') < 0;
     }
 
     private PlayerAdapter<Player> resolvePlayerAdapter(boolean useLuckPerms) {
@@ -297,7 +306,7 @@ public final class TabUpdater {
         return configManager.deserialize(combinedName, "luckperms-player-list-name");
     }
 
-    public record TabSnapshot(int tickValue, String footerMiniMessageBase) {
+    public record TabSnapshot(int tickValue, String footerMiniMessageBase, String serverNameRaw, Component sharedHeaderComponent) {
     }
 
     public record RamStats(long usedMb, long totalMb, int percent) {

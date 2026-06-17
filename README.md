@@ -11,7 +11,7 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 | `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
-| `1.2.0-Beta.2` | Beta | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
+| `1.2.0` | Stable | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
 
 Version docs:
 
@@ -54,7 +54,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.2.0-Beta.2.jar
+build/libs/NeoTab-1.2.0.jar
 ```
 
 ## PlaceholderAPI
@@ -226,4 +226,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.2.0-Beta.2`.
+- The current source version is `1.2.0`.

@@ -6,8 +6,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 public final class PlaceholderSupport {
+    private static final AtomicBoolean availabilityLogged = new AtomicBoolean(false);
+    private static final AtomicBoolean failureWarned = new AtomicBoolean(false);
+
     private final NeoTab plugin;
-    private final AtomicBoolean failureWarned = new AtomicBoolean(false);
     private boolean available;
 
     public PlaceholderSupport(NeoTab plugin) {
@@ -18,7 +20,7 @@ public final class PlaceholderSupport {
     public void refresh() {
         boolean wasAvailable = available;
         available = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
-        if (available && !wasAvailable) {
+        if (available && !wasAvailable && availabilityLogged.compareAndSet(false, true)) {
             plugin.getLogger().info("PlaceholderAPI support enabled.");
         }
     }

@@ -62,6 +62,34 @@ public final class ScoreboardService implements Listener {
     public void start() {
         stopTaskOnly();
         placeholderSupport.refresh();
+        startTaskIfNeeded();
+    }
+
+    public void restart() {
+        stopTaskOnly();
+        placeholderSupport.refresh();
+        if (shouldRunTask()) {
+            startTaskIfNeeded();
+            updateAll();
+            return;
+        }
+
+        clearAllSessions();
+    }
+
+    public void stop() {
+        stopTaskOnly();
+        clearAllSessions();
+        sessions.clear();
+        enabledPlayers.clear();
+        disabledPlayers.clear();
+    }
+
+    private void startTaskIfNeeded() {
+        if (task != null || !shouldRunTask()) {
+            return;
+        }
+
         int interval = Math.max(1, configManager.getScoreboardConfig().updateIntervalTicks());
         task = new BukkitRunnable() {
             @Override
@@ -71,20 +99,8 @@ public final class ScoreboardService implements Listener {
         }.runTaskTimer(plugin, 0L, interval);
     }
 
-    public void restart() {
-        placeholderSupport.refresh();
-        start();
-        updateAll();
-    }
-
-    public void stop() {
-        stopTaskOnly();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            clear(player);
-        }
-        sessions.clear();
-        enabledPlayers.clear();
-        disabledPlayers.clear();
+    private boolean shouldRunTask() {
+        return configManager.getScoreboardConfig().enabled() || !enabledPlayers.isEmpty();
     }
 
     public boolean toggle(Player player) {
@@ -102,6 +118,7 @@ public final class ScoreboardService implements Listener {
         if (enabled) {
             enabledPlayers.add(uuid);
             disabledPlayers.remove(uuid);
+            startTaskIfNeeded();
             update(player, buildRenderContext(), animationTick);
             return;
         }
@@ -109,13 +126,27 @@ public final class ScoreboardService implements Listener {
         enabledPlayers.remove(uuid);
         disabledPlayers.add(uuid);
         clear(player);
+        stopTaskIfIdle();
     }
 
     public void setGlobalEnabled(boolean enabled) {
         configManager.setScoreboardEnabled(enabled);
         enabledPlayers.clear();
         disabledPlayers.clear();
-        updateAll();
+        if (enabled) {
+            startTaskIfNeeded();
+            updateAll();
+            return;
+        }
+
+        clearAllSessions();
+        stopTaskOnly();
+    }
+
+    private void clearAllSessions() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            clear(player);
+        }
     }
 
     public void setTitle(String title) {
@@ -182,6 +213,13 @@ public final class ScoreboardService implements Listener {
     }
 
     public void updateAll() {
+        if (!shouldRunTask()) {
+            clearAllSessions();
+            stopTaskOnly();
+            return;
+        }
+
+        startTaskIfNeeded();
         ScoreboardRenderContext renderContext = buildRenderContext();
         int titleTick = animationTick++;
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -195,6 +233,7 @@ public final class ScoreboardService implements Listener {
 
     public void handleJoin(Player player) {
         if (isEnabled(player)) {
+            startTaskIfNeeded();
             Bukkit.getScheduler().runTaskLater(plugin, () -> update(player, buildRenderContext(), animationTick), 5L);
         }
     }
@@ -205,6 +244,7 @@ public final class ScoreboardService implements Listener {
         sessions.remove(uuid);
         enabledPlayers.remove(uuid);
         disabledPlayers.remove(uuid);
+        stopTaskIfIdle();
     }
 
     private void stopTaskOnly() {
@@ -220,7 +260,12 @@ public final class ScoreboardService implements Listener {
         BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession());
         ConfigManager.ScoreboardConfig scoreboardConfig = configManager.getScoreboardConfig();
 
-        session.objective().setDisplayName(renderTitle(player, scoreboardConfig, renderContext, titleTick));
+        String renderedTitle = renderTitle(player, scoreboardConfig, renderContext, titleTick);
+        if (!renderedTitle.equals(session.title())) {
+            session.objective().setDisplayName(renderedTitle);
+            session.setTitle(renderedTitle);
+        }
+
         List<String> lines = scoreboardConfig.lines();
         int visibleLineCount = Math.min(lines.size(), ConfigManager.MAX_SCOREBOARD_LINES);
 
@@ -228,11 +273,22 @@ public final class ScoreboardService implements Listener {
             Team team = session.teams().get(index);
             String entry = UNIQUE_ENTRIES[index];
             if (index < visibleLineCount) {
-                team.setPrefix(renderLine(player, lines.get(index), renderContext));
-                session.objective().getScore(entry).setScore(ConfigManager.MAX_SCOREBOARD_LINES - index);
+                String renderedLine = renderLine(player, lines.get(index), renderContext);
+                if (!session.isVisible(index)) {
+                    session.objective().getScore(entry).setScore(ConfigManager.MAX_SCOREBOARD_LINES - index);
+                    session.setVisible(index, true);
+                }
+                if (!renderedLine.equals(session.line(index))) {
+                    team.setPrefix(renderedLine);
+                    session.setLine(index, renderedLine);
+                }
             } else {
-                team.setPrefix("");
-                session.scoreboard().resetScores(entry);
+                if (session.isVisible(index)) {
+                    team.setPrefix("");
+                    session.scoreboard().resetScores(entry);
+                    session.setLine(index, "");
+                    session.setVisible(index, false);
+                }
             }
         }
 
@@ -296,7 +352,7 @@ public final class ScoreboardService implements Listener {
     }
 
     private String renderLine(Player player, String rawLine, ScoreboardRenderContext renderContext) {
-        return trimScoreboardText(renderText(player, rawLine, "scoreboard.line", renderContext));
+        return trimTeamText(renderText(player, rawLine, "scoreboard.line", renderContext));
     }
 
     private String renderText(Player player, String rawText, String context, ScoreboardRenderContext renderContext) {
@@ -338,14 +394,91 @@ public final class ScoreboardService implements Listener {
         if (text == null) {
             return "";
         }
-        return text.length() <= 128 ? text : text.substring(0, 128);
+        return trimLegacyText(text, 128);
     }
 
-    private record BoardSession(
-        Scoreboard scoreboard,
-        Objective objective,
-        Map<Integer, Team> teams
-    ) {
+    private String trimTeamText(String text) {
+        return trimLegacyText(text, 64);
+    }
+
+    private String trimLegacyText(String text, int maxLength) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() <= maxLength) {
+            return text;
+        }
+
+        int end = maxLength;
+        if (end > 0 && text.charAt(end - 1) == ChatColor.COLOR_CHAR) {
+            end--;
+        }
+        return text.substring(0, end);
+    }
+
+    private void stopTaskIfIdle() {
+        if (shouldRunTask()) {
+            return;
+        }
+
+        stopTaskOnly();
+    }
+
+    private static final class BoardSession {
+        private final Scoreboard scoreboard;
+        private final Objective objective;
+        private final Map<Integer, Team> teams;
+        private final String[] lines;
+        private final boolean[] visibleLines;
+        private String title;
+
+        private BoardSession(Scoreboard scoreboard, Objective objective, Map<Integer, Team> teams) {
+            this.scoreboard = scoreboard;
+            this.objective = objective;
+            this.teams = teams;
+            lines = new String[ConfigManager.MAX_SCOREBOARD_LINES];
+            visibleLines = new boolean[ConfigManager.MAX_SCOREBOARD_LINES];
+            title = "";
+            for (int index = 0; index < lines.length; index++) {
+                lines[index] = "";
+            }
+        }
+
+        private Scoreboard scoreboard() {
+            return scoreboard;
+        }
+
+        private Objective objective() {
+            return objective;
+        }
+
+        private Map<Integer, Team> teams() {
+            return teams;
+        }
+
+        private String title() {
+            return title;
+        }
+
+        private void setTitle(String title) {
+            this.title = title;
+        }
+
+        private String line(int index) {
+            return lines[index];
+        }
+
+        private void setLine(int index, String line) {
+            lines[index] = line;
+        }
+
+        private boolean isVisible(int index) {
+            return visibleLines[index];
+        }
+
+        private void setVisible(int index, boolean visible) {
+            visibleLines[index] = visible;
+        }
     }
 
     private record ScoreboardRenderContext(

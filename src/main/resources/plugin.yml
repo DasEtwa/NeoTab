@@ -58,7 +58,7 @@ permissions:
     description: Allows editing the NeoTab scoreboard title and lines
     default: op
   neotab.scoreboard.presets:
-    description: Allows saving and loading NeoTab scoreboard presets
+    description: Allows saving, loading, and deleting NeoTab scoreboard presets
     default: op
   neotab.timer:
     description: Allows using the NeoTab ActionBar Timer

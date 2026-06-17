@@ -58,7 +58,7 @@ public final class NeoTabGui implements Listener {
         Inventory inventory = createInventory(MenuType.MAIN, "NeoTab");
         inventory.setItem(11, item(Material.NAME_TAG, "Tab", "Header name and animation style."));
         inventory.setItem(13, item(Material.PAPER, "Scoreboard", "Sidebar scoreboard controls."));
-        inventory.setItem(14, item(Material.CLOCK, "Extras", "Interval and ActionBar Timer."));
+        inventory.setItem(15, item(Material.CLOCK, "Extras", "Interval and ActionBar Timer."));
         inventory.setItem(22, item(Material.BARRIER, "Close", "Close this menu."));
         player.openInventory(inventory);
         if (notify) {
@@ -124,7 +124,7 @@ public final class NeoTabGui implements Listener {
         switch (slot) {
             case 11 -> openTab(player);
             case 13 -> openScoreboard(player);
-            case 14 -> openExtras(player);
+            case 15 -> openExtras(player);
             case 22 -> player.closeInventory();
             default -> {
             }
@@ -534,8 +534,8 @@ public final class NeoTabGui implements Listener {
 
     private void openExtras(Player player) {
         Inventory inventory = createInventory(MenuType.EXTRAS, "NeoTab - Extras");
-        inventory.setItem(10, item(Material.FEATHER, "Tab Interval", "Current: " + configManager.getUpdateIntervalTicks() + " ticks."));
-        inventory.setItem(12, item(Material.COMPARATOR, "Scoreboard Interval", "Current: " + configManager.getScoreboardConfig().updateIntervalTicks() + " ticks."));
+        inventory.setItem(11, item(Material.FEATHER, "Tab Interval", "Current: " + configManager.getUpdateIntervalTicks() + " ticks."));
+        inventory.setItem(13, item(Material.COMPARATOR, "Scoreboard Interval", "Current: " + configManager.getScoreboardConfig().updateIntervalTicks() + " ticks."));
         inventory.setItem(15, item(Material.CLOCK, "ActionBar Timer", "Start or control a countdown."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
@@ -543,8 +543,8 @@ public final class NeoTabGui implements Listener {
 
     private void handleExtrasClick(Player player, int slot) {
         switch (slot) {
-            case 10 -> openTabInterval(player);
-            case 12 -> openScoreboardInterval(player);
+            case 11 -> openTabInterval(player);
+            case 13 -> openScoreboardInterval(player);
             case 15 -> openTimer(player);
             case 22 -> openMain(player, false);
             default -> {
