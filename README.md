@@ -4,6 +4,8 @@ NeoTab is a lightweight Paper tablist plugin for Minecraft `1.20.6+` that adds a
 
 Modrinth: https://modrinth.com/plugin/neotab/versions
 
+Discord: https://discord.gg/pjM6ztnzMR
+
 ## Versions
 
 | Version | Type | Minecraft | Notes |
