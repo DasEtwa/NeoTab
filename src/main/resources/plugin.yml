@@ -9,7 +9,7 @@ author: muffinonboard aka DasEtwa
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style|color|performance|gui|sb|timer>
+    usage: /tab <reload|setname|style|color|performance|gui|sb|timer|stopwatch|clock>
     aliases: [neotab]
 
 permissions:
@@ -29,6 +29,16 @@ permissions:
       neotab.scoreboard.presets: true
       neotab.timer: true
       neotab.timer.admin: true
+      neotab.extras: true
+      neotab.extras.actionbar: true
+      neotab.extras.clock: true
+      neotab.extras.welcome: true
+      neotab.extras.randommessages: true
+      neotab.extras.stopwatch: true
+      neotab.extras.biome: true
+      neotab.extras.achievements: true
+      neotab.extras.nearestplayer: true
+      neotab.extras.structure: true
       neotab.update.notify: true
   neotab.reload:
     description: Allows reloading the config
@@ -66,6 +76,36 @@ permissions:
   neotab.timer.admin:
     description: Reserved for future ActionBar Timer admin controls
     default: op
+  neotab.extras:
+    description: Allows using NeoTab Extras
+    default: op
+  neotab.extras.actionbar:
+    description: Allows using NeoTab ActionBar extras
+    default: op
+  neotab.extras.clock:
+    description: Allows toggling and configuring the ActionBar clock
+    default: op
+  neotab.extras.welcome:
+    description: Allows toggling the ActionBar welcome message
+    default: op
+  neotab.extras.randommessages:
+    description: Allows toggling random ActionBar messages
+    default: op
+  neotab.extras.stopwatch:
+    description: Allows using the ActionBar Stopwatch
+    default: op
+  neotab.extras.biome:
+    description: Allows toggling biome ActionBar popups
+    default: op
+  neotab.extras.achievements:
+    description: Allows toggling ActionBar achievement counts
+    default: op
+  neotab.extras.nearestplayer:
+    description: Allows toggling the nearest-player ActionBar module
+    default: op
+  neotab.extras.structure:
+    description: Allows viewing experimental structure popup controls
+    default: op
   neotab.update.notify:
     description: Shows NeoTab update notifications
     default: op
@@ -86,4 +126,14 @@ permissions:
       neotab.scoreboard.presets: true
       neotab.timer: true
       neotab.timer.admin: true
+      neotab.extras: true
+      neotab.extras.actionbar: true
+      neotab.extras.clock: true
+      neotab.extras.welcome: true
+      neotab.extras.randommessages: true
+      neotab.extras.stopwatch: true
+      neotab.extras.biome: true
+      neotab.extras.achievements: true
+      neotab.extras.nearestplayer: true
+      neotab.extras.structure: true
       neotab.update.notify: true

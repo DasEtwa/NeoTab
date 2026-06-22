@@ -4,8 +4,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,16 +17,34 @@ public final class ActionBarTimerService implements Listener {
 
     private final NeoTab plugin;
     private final ConfigManager configManager;
+    private final ActionBarService actionBarService;
+    private final ActionBarTextFormatter formatter;
     private final Map<UUID, TimerSession> sessions;
-    private final LegacyComponentSerializer legacySerializer;
 
+    private StopwatchService stopwatchService;
     private BukkitTask task;
 
-    public ActionBarTimerService(NeoTab plugin, ConfigManager configManager) {
+    public ActionBarTimerService(NeoTab plugin, ConfigManager configManager, ActionBarService actionBarService, ActionBarTextFormatter formatter) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.actionBarService = actionBarService;
+        this.formatter = formatter;
         sessions = new HashMap<>();
-        legacySerializer = LegacyComponentSerializer.legacySection();
+    }
+
+    public void setStopwatchService(StopwatchService stopwatchService) {
+        this.stopwatchService = stopwatchService;
+    }
+
+    public void restart() {
+        formatter.refresh();
+        if (!configManager.getActionBarTimerConfig().enabled()) {
+            stopAll();
+            return;
+        }
+        if (!sessions.isEmpty()) {
+            ensureTask();
+        }
     }
 
     public boolean start(Player player, int durationSeconds) {
@@ -36,6 +52,9 @@ public final class ActionBarTimerService implements Listener {
             return false;
         }
 
+        if (stopwatchService != null && stopwatchService.isRunning(player)) {
+            stopwatchService.stopSilently(player);
+        }
         sessions.put(player.getUniqueId(), new TimerSession(durationSeconds, false));
         ensureTask();
         send(player, durationSeconds);
@@ -48,7 +67,7 @@ public final class ActionBarTimerService implements Listener {
             return false;
         }
 
-        player.sendActionBar(Component.empty());
+        actionBarService.clear(player, "timer");
         stopTaskIfIdle();
         return true;
     }
@@ -75,13 +94,8 @@ public final class ActionBarTimerService implements Listener {
     }
 
     public void stopAll() {
-        for (UUID uuid : sessions.keySet()) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null) {
-                player.sendActionBar(Component.empty());
-            }
-        }
         sessions.clear();
+        actionBarService.clearSource("timer");
         if (task != null) {
             task.cancel();
             task = null;
@@ -90,8 +104,14 @@ public final class ActionBarTimerService implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        sessions.remove(event.getPlayer().getUniqueId());
+        UUID uuid = event.getPlayer().getUniqueId();
+        sessions.remove(uuid);
+        actionBarService.clear(uuid, "timer");
         stopTaskIfIdle();
+    }
+
+    public boolean isRunning(Player player) {
+        return sessions.containsKey(player.getUniqueId());
     }
 
     public static int parseDurationSeconds(String input) {
@@ -157,7 +177,7 @@ public final class ActionBarTimerService implements Listener {
 
             int remainingSeconds = session.remainingSeconds() - 1;
             if (remainingSeconds <= 0) {
-                player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().endedFormat(), 0, false));
+                actionBarService.submit(player, "timer", renderTimerText(player, configManager.getActionBarTimerConfig().endedFormat(), 0, false), ActionBarService.PRIORITY_TIMER, 2500L);
                 iterator.remove();
                 continue;
             }
@@ -179,25 +199,25 @@ public final class ActionBarTimerService implements Listener {
     }
 
     private void send(Player player, int remainingSeconds) {
-        player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().runningFormat(), remainingSeconds, true));
+        actionBarService.submit(player, "timer", renderTimerText(player, configManager.getActionBarTimerConfig().runningFormat(), remainingSeconds, true), ActionBarService.PRIORITY_TIMER, 2500L);
     }
 
     private void sendPaused(Player player, int remainingSeconds) {
-        player.sendActionBar(renderTimerText(configManager.getActionBarTimerConfig().pausedFormat(), remainingSeconds, true));
+        actionBarService.submit(player, "timer", renderTimerText(player, configManager.getActionBarTimerConfig().pausedFormat(), remainingSeconds, true), ActionBarService.PRIORITY_TIMER, 2500L);
     }
 
-    private Component renderTimerText(String format, int remainingSeconds, boolean appendTimeIfMissing) {
+    private net.kyori.adventure.text.Component renderTimerText(Player player, String format, int remainingSeconds, boolean appendTimeIfMissing) {
         String rawFormat = format == null || format.isBlank() ? "{time}" : format;
         if (appendTimeIfMissing && !rawFormat.contains("{time}")) {
             rawFormat = rawFormat + " {time}";
         }
 
-        String resolved = rawFormat
-            .replace("{time}", formatDuration(remainingSeconds))
-            .replace("{seconds}", Integer.toString(Math.max(0, remainingSeconds)));
-        String plain = configManager.toPlain(resolved, "actionbar-timer");
-        String legacy = AnimationUtils.buildLegacyText(plain, configManager.getCustomColors(), AnimationUtils.Style.STATIC, 0, false);
-        return legacySerializer.deserialize(legacy);
+        return formatter.renderPalette(
+            player,
+            rawFormat,
+            Map.of("time", formatDuration(remainingSeconds), "seconds", Integer.toString(Math.max(0, remainingSeconds))),
+            "actionbar-timer"
+        );
     }
 
     private String formatDuration(int seconds) {

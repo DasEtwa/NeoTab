@@ -114,9 +114,12 @@ public final class NeoTabGui implements Listener {
             case SCOREBOARD_LINE_PRESETS -> handleScoreboardLinePresetsClick(player, guiHolder.lineNumber(), slot);
             case SCOREBOARD_STYLE -> handleScoreboardStyleClick(player, slot);
             case EXTRAS -> handleExtrasClick(player, slot);
+            case ACTIONBAR -> handleActionBarClick(player, slot);
             case TAB_INTERVAL -> handleTabIntervalClick(player, slot);
             case SCOREBOARD_INTERVAL -> handleScoreboardIntervalClick(player, slot);
             case TIMER -> handleTimerClick(player, slot);
+            case STOPWATCH -> handleStopwatchClick(player, slot);
+            case PERFORMANCE_NOTICE -> handlePerformanceNoticeClick(player, slot);
         }
     }
 
@@ -536,7 +539,7 @@ public final class NeoTabGui implements Listener {
         Inventory inventory = createInventory(MenuType.EXTRAS, "NeoTab - Extras");
         inventory.setItem(11, item(Material.FEATHER, "Tab Interval", "Current: " + configManager.getUpdateIntervalTicks() + " ticks."));
         inventory.setItem(13, item(Material.COMPARATOR, "Scoreboard Interval", "Current: " + configManager.getScoreboardConfig().updateIntervalTicks() + " ticks."));
-        inventory.setItem(15, item(Material.CLOCK, "ActionBar Timer", "Start or control a countdown."));
+        inventory.setItem(15, item(Material.CLOCK, "ActionBar", "Timer, stopwatch, clock, popups, and messages."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -545,8 +548,42 @@ public final class NeoTabGui implements Listener {
         switch (slot) {
             case 11 -> openTabInterval(player);
             case 13 -> openScoreboardInterval(player);
-            case 15 -> openTimer(player);
+            case 15 -> openActionBar(player);
             case 22 -> openMain(player, false);
+            default -> {
+            }
+        }
+    }
+
+    private void openActionBar(Player player) {
+        Inventory inventory = createInventory(MenuType.ACTIONBAR, "NeoTab - ActionBar");
+        ConfigManager.ActionBarConfig config = configManager.getActionBarConfig();
+        inventory.setItem(9, item(Material.CLOCK, "Timer", "Countdown controls."));
+        inventory.setItem(10, item(Material.COMPASS, "Stopwatch", "Count upward from zero."));
+        inventory.setItem(11, item(Material.DAYLIGHT_DETECTOR, "Clock: " + onOff(config.clock().enabled()), "Shows real time every " + config.clock().intervalSeconds() + "s."));
+        inventory.setItem(12, item(Material.BELL, "Welcome: " + onOff(config.welcome().enabled()), "Shows a join ActionBar message."));
+        inventory.setItem(13, item(Material.PAPER, "Random: " + onOff(config.randomMessages().enabled()), "Shows occasional low-priority messages."));
+        inventory.setItem(14, item(Material.GRASS_BLOCK, "Biome Popup: " + onOff(config.biomePopup().enabled()), "Shows when a player enters a new biome."));
+        inventory.setItem(15, item(Material.EXPERIENCE_BOTTLE, "Achievements: " + onOff(config.achievements().enabled()), "Counts Minecraft advancements."));
+        inventory.setItem(16, item(Material.REDSTONE_TORCH, "Performance Notice", "Nearest player and structure popup settings."));
+        inventory.setItem(22, backItem());
+        player.openInventory(inventory);
+    }
+
+    private void handleActionBarClick(Player player, int slot) {
+        switch (slot) {
+            case 9 -> openTimer(player);
+            case 10 -> openStopwatch(player);
+            case 11 -> toggleActionBarModule(player, "clock", "neotab.extras.clock", "Clock");
+            case 12 -> toggleActionBarModule(player, "welcome", "neotab.extras.welcome", "Welcome");
+            case 13 -> toggleActionBarModule(player, "random-messages", "neotab.extras.randommessages", "Random Messages");
+            case 14 -> toggleActionBarModule(player, "biome-popup", "neotab.extras.biome", "Biome Popup");
+            case 15 -> toggleActionBarModule(player, "achievements", "neotab.extras.achievements", "Achievements");
+            case 16 -> {
+                player.sendMessage(configManager.message("performance-notice-warning"));
+                openPerformanceNotice(player);
+            }
+            case 22 -> openExtras(player);
             default -> {
             }
         }
@@ -645,7 +682,7 @@ public final class NeoTabGui implements Listener {
 
     private void handleTimerClick(Player player, int slot) {
         if (slot == 22) {
-            openExtras(player);
+            openActionBar(player);
             return;
         }
         if (!player.hasPermission("neotab.timer")) {
@@ -697,6 +734,102 @@ public final class NeoTabGui implements Listener {
         player.sendMessage(configManager.message(started ? "timer-started" : "timer-disabled"));
     }
 
+    private void openStopwatch(Player player) {
+        Inventory inventory = createInventory(MenuType.STOPWATCH, "NeoTab - Stopwatch");
+        inventory.setItem(10, item(Material.EMERALD, "Start", "Start your stopwatch."));
+        inventory.setItem(12, item(Material.YELLOW_DYE, "Pause", "Pause your stopwatch."));
+        inventory.setItem(13, item(Material.LIME_DYE, "Resume", "Resume your stopwatch."));
+        inventory.setItem(14, item(Material.RED_DYE, "Stop", "Stop your stopwatch."));
+        inventory.setItem(16, item(Material.BARRIER, "Reset", "Reset to zero."));
+        inventory.setItem(22, backItem());
+        player.openInventory(inventory);
+    }
+
+    private void handleStopwatchClick(Player player, int slot) {
+        if (slot == 22) {
+            openActionBar(player);
+            return;
+        }
+        if (!player.hasPermission("neotab.extras.stopwatch")) {
+            player.sendMessage(configManager.message("no-permission"));
+            return;
+        }
+
+        switch (slot) {
+            case 10 -> {
+                boolean started = plugin.getStopwatchService().start(player);
+                player.sendMessage(configManager.message(started ? "stopwatch-started" : "stopwatch-conflict"));
+            }
+            case 12 -> {
+                boolean paused = plugin.getStopwatchService().pause(player);
+                player.sendMessage(configManager.message(paused ? "stopwatch-paused" : "stopwatch-not-running"));
+            }
+            case 13 -> {
+                boolean resumed = plugin.getStopwatchService().resume(player);
+                player.sendMessage(configManager.message(resumed ? "stopwatch-resumed" : "stopwatch-not-running"));
+            }
+            case 14 -> {
+                boolean stopped = plugin.getStopwatchService().stop(player);
+                player.sendMessage(configManager.message(stopped ? "stopwatch-stopped" : "stopwatch-not-running"));
+            }
+            case 16 -> {
+                boolean reset = plugin.getStopwatchService().reset(player);
+                player.sendMessage(configManager.message(reset ? "stopwatch-reset" : "stopwatch-not-running"));
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void openPerformanceNotice(Player player) {
+        Inventory inventory = createInventory(MenuType.PERFORMANCE_NOTICE, "NeoTab - Performance");
+        ConfigManager.ActionBarConfig config = configManager.getActionBarConfig();
+        inventory.setItem(11, item(Material.PLAYER_HEAD, "Nearest Player: " + onOff(config.nearestPlayer().enabled()), "Can be heavier on large servers. Interval: " + config.nearestPlayer().checkIntervalTicks() + " ticks."));
+        inventory.setItem(15, item(Material.STRUCTURE_BLOCK, "Structure Popup", "Experimental placeholder. Detection is planned."));
+        inventory.setItem(22, backItem());
+        player.openInventory(inventory);
+    }
+
+    private void handlePerformanceNoticeClick(Player player, int slot) {
+        switch (slot) {
+            case 11 -> toggleActionBarModule(player, "nearest-player", "neotab.extras.nearestplayer", "Nearest Player");
+            case 15 -> {
+                player.sendMessage(configManager.message("structure-popup-coming-soon"));
+                openPerformanceNotice(player);
+            }
+            case 22 -> openActionBar(player);
+            default -> {
+            }
+        }
+    }
+
+    private void toggleActionBarModule(Player player, String moduleName, String permission, String displayName) {
+        if (!player.hasPermission(permission)) {
+            player.sendMessage(configManager.message("no-permission"));
+            return;
+        }
+
+        boolean enabled = switch (moduleName) {
+            case "clock" -> !configManager.getActionBarConfig().clock().enabled();
+            case "welcome" -> !configManager.getActionBarConfig().welcome().enabled();
+            case "random-messages" -> !configManager.getActionBarConfig().randomMessages().enabled();
+            case "biome-popup" -> !configManager.getActionBarConfig().biomePopup().enabled();
+            case "achievements" -> !configManager.getActionBarConfig().achievements().enabled();
+            case "nearest-player" -> !configManager.getActionBarConfig().nearestPlayer().enabled();
+            default -> false;
+        };
+
+        configManager.setActionBarModuleEnabled(moduleName, enabled);
+        plugin.restartActionBarExtras();
+        player.sendMessage(configManager.message(enabled ? "actionbar-module-enabled" : "actionbar-module-disabled", Map.of("module", displayName)));
+        if ("nearest-player".equals(moduleName)) {
+            player.sendMessage(configManager.message("performance-notice-warning"));
+            openPerformanceNotice(player);
+            return;
+        }
+        openActionBar(player);
+    }
+
     private String tabIntervalLore(String preset) {
         Integer ticks = configManager.getPerformancePresetTicks(preset);
         String suffix = preset.equals(configManager.getActivePerformancePreset()) ? " Current preset." : "";
@@ -729,6 +862,10 @@ public final class NeoTabGui implements Listener {
             colors.add(color.asHexString().toUpperCase(Locale.ROOT));
         }
         return String.join(", ", colors);
+    }
+
+    private String onOff(boolean enabled) {
+        return enabled ? "On" : "Off";
     }
 
     private Inventory createInventory(MenuType menuType, String title) {
@@ -780,9 +917,12 @@ public final class NeoTabGui implements Listener {
         SCOREBOARD_LINE_PRESETS,
         SCOREBOARD_STYLE,
         EXTRAS,
+        ACTIONBAR,
         TAB_INTERVAL,
         SCOREBOARD_INTERVAL,
-        TIMER
+        TIMER,
+        STOPWATCH,
+        PERFORMANCE_NOTICE
     }
 
     private static final class GuiHolder implements InventoryHolder {

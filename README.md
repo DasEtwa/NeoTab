@@ -14,7 +14,7 @@ Discord: https://discord.gg/pjM6ztnzMR
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 | `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
 | `1.2.0` | Stable | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
-| `1.3.0-Beta.1` | Development | `1.20.6+` target | Starts the next beta cycle after `1.2.0`. |
+| `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
 Version docs:
 
@@ -38,6 +38,8 @@ Version docs:
 - Separate update intervals for tab and scoreboard rendering
 - Optional animated scoreboard title using the same animation styles as the tab header
 - Configurable ActionBar Timer text with `{time}` and `timer ends` completion text
+- Central ActionBar priority system for timer, stopwatch, popups, clock, random messages, and other Extras modules
+- ActionBar Stopwatch, Clock, Welcome message, Random Messages, Biome Popup, Achievements, and Nearest Player modules
 - Shared active color palette for tab, scoreboard, chat messages, and timer output
 - Paper `1.21` API target with Java 21 bytecode
 
@@ -150,7 +152,8 @@ The GUI has three categories:
 
 - `Tab`: change the tab name, select animation styles, and set color presets or custom hex colors.
 - `Scoreboard`: toggle the sidebar, edit lines 1-15, pick line presets, save/load/delete presets, and set the scoreboard title animation.
-- `Extras`: set tab and scoreboard update intervals independently and control the ActionBar Timer, including custom durations and custom timer text.
+- `Extras`: set tab and scoreboard update intervals independently and open ActionBar Extras.
+- `ActionBar`: control Timer, Stopwatch, Clock, Welcome, Random Messages, Biome Popup, Achievements, and Performance Notice modules.
 
 GUI items cannot be taken or moved.
 
@@ -210,11 +213,24 @@ PlaceholderAPI remains optional and is only used when installed and enabled.
 /tab timer pause
 /tab timer resume
 /tab timer text <text with {time}>
+/tab stopwatch start
+/tab stopwatch stop
+/tab stopwatch pause
+/tab stopwatch resume
+/tab stopwatch reset
+/tab clock on
+/tab clock off
+/tab clock timezone <zone>
+/tab clock format <format>
 ```
 
 Duration examples: `30s`, `5m`, `10m`, `1h`.
 
 The GUI includes fixed 5 minute and 10 minute starts plus a custom duration chat input. The running timer text is configurable and defaults to only showing `{time}`. When the countdown finishes, NeoTab shows `timer ends`.
+
+NeoTab `1.3.0-Beta.1` routes ActionBar output through a priority dispatcher so modules do not randomly overwrite each other. Timer and Stopwatch use priority `100`, Biome Popup uses `90`, Structure Popup is reserved at `85`, Welcome uses `70`, Nearest Player uses `50`, Achievements uses `40`, Clock uses `30`, and Random Messages use `10`.
+
+Structure Popup is intentionally a config/GUI placeholder in this beta. Full structure detection is planned, but no heavy or unsafe structure lookup runs yet.
 
 ## Header Bold
 

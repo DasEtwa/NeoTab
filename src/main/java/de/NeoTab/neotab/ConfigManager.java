@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -25,6 +28,10 @@ public final class ConfigManager {
     public static final int MIN_PERFORMANCE_INTERVAL_TICKS = 1;
     public static final int MAX_PERFORMANCE_INTERVAL_TICKS = 1200;
     public static final int MAX_SCOREBOARD_LINES = 15;
+    public static final int MIN_ACTIONBAR_SECONDS_INTERVAL = 60;
+    public static final int MIN_BIOME_CHECK_INTERVAL_TICKS = 30;
+    public static final int MIN_NEAREST_PLAYER_CHECK_INTERVAL_TICKS = 40;
+    public static final int MIN_STRUCTURE_CHECK_INTERVAL_TICKS = 100;
 
     private static final List<TextColor> DEFAULT_COLORS = List.of(
         TextColor.color(0xAA00AA),
@@ -77,12 +84,7 @@ public final class ConfigManager {
             loadScoreboardLines(config),
             loadScoreboardPresets(config)
         );
-        ActionBarTimerConfig actionBarTimerConfig = new ActionBarTimerConfig(
-            config.getBoolean("extras.actionbar-timer.enabled", true),
-            validateMiniMessage(config.getString("extras.actionbar-timer.running-format", "{time}"), "extras.actionbar-timer.running-format"),
-            validateMiniMessage(config.getString("extras.actionbar-timer.paused-format", "Paused {time}"), "extras.actionbar-timer.paused-format"),
-            validateMiniMessage(config.getString("extras.actionbar-timer.ended-format", "timer ends"), "extras.actionbar-timer.ended-format")
-        );
+        ActionBarConfig actionBarConfig = loadActionBarConfig(config);
 
         AnimationUtils.Style style = resolveStyle(config.getString("animation-style", "rainbow"), AnimationUtils.Style.RAINBOW, "animation-style");
 
@@ -113,7 +115,7 @@ public final class ConfigManager {
             savedPerformancePresets,
             guiEnabled,
             scoreboardConfig,
-            actionBarTimerConfig
+            actionBarConfig
         ));
         loadMessages();
     }
@@ -288,7 +290,40 @@ public final class ConfigManager {
     }
 
     public void setActionBarTimerRunningFormat(String format) {
-        plugin.getConfig().set("extras.actionbar-timer.running-format", format);
+        plugin.getConfig().set("extras.actionbar.timer.running-format", format);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setActionBarModuleEnabled(String moduleName, boolean enabled) {
+        String path = switch (normalizePerformancePresetName(moduleName)) {
+            case "timer" -> "extras.actionbar.timer.enabled";
+            case "stopwatch" -> "extras.actionbar.stopwatch.enabled";
+            case "clock" -> "extras.actionbar.clock.enabled";
+            case "welcome" -> "extras.actionbar.welcome.enabled";
+            case "randommessages", "random-messages" -> "extras.actionbar.random-messages.enabled";
+            case "biomepopup", "biome-popup" -> "extras.actionbar.biome-popup.enabled";
+            case "achievements" -> "extras.actionbar.achievements.enabled";
+            case "nearestplayer", "nearest-player" -> "extras.actionbar.nearest-player.enabled";
+            case "structurepopup", "structure-popup" -> "extras.actionbar.structure-popup.enabled";
+            default -> null;
+        };
+        if (path == null) {
+            return;
+        }
+        plugin.getConfig().set(path, enabled);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setClockTimezone(String timezone) {
+        plugin.getConfig().set("extras.actionbar.clock.timezone", timezone);
+        plugin.saveConfig();
+        reload();
+    }
+
+    public void setClockFormat(String format) {
+        plugin.getConfig().set("extras.actionbar.clock.format", format);
         plugin.saveConfig();
         reload();
     }
@@ -393,7 +428,11 @@ public final class ConfigManager {
     }
 
     public ActionBarTimerConfig getActionBarTimerConfig() {
-        return snapshot.get().actionBarTimerConfig();
+        return snapshot.get().actionBarConfig().timer();
+    }
+
+    public ActionBarConfig getActionBarConfig() {
+        return snapshot.get().actionBarConfig();
     }
 
     public List<TextColor> getCustomColors() {
@@ -547,6 +586,138 @@ public final class ConfigManager {
         return Collections.unmodifiableMap(presets);
     }
 
+    private ActionBarConfig loadActionBarConfig(FileConfiguration config) {
+        return new ActionBarConfig(
+            config.getBoolean("extras.actionbar.enabled", true),
+            loadActionBarTimerConfig(config),
+            new StopwatchActionBarConfig(
+                config.getBoolean("extras.actionbar.stopwatch.enabled", true),
+                validateMiniMessage(config.getString("extras.actionbar.stopwatch.text", "<light_purple>Stopwatch {time}</light_purple>"), "extras.actionbar.stopwatch.text")
+            ),
+            new ClockActionBarConfig(
+                config.getBoolean("extras.actionbar.clock.enabled", false),
+                resolveZoneId(config.getString("extras.actionbar.clock.timezone", "Europe/Berlin")),
+                clampSecondsInterval(config.getInt("extras.actionbar.clock.interval-seconds", 60), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.clock.interval-seconds"),
+                validateClockFormat(config.getString("extras.actionbar.clock.format", "HH:mm")),
+                validateMiniMessage(config.getString("extras.actionbar.clock.text", "<gray>Time: <light_purple>{time}</light_purple></gray>"), "extras.actionbar.clock.text")
+            ),
+            new WelcomeActionBarConfig(
+                config.getBoolean("extras.actionbar.welcome.enabled", true),
+                Math.max(0, config.getInt("extras.actionbar.welcome.delay-ticks", 20)),
+                Math.max(1, config.getInt("extras.actionbar.welcome.duration-seconds", 5)),
+                validateMiniMessage(config.getString("extras.actionbar.welcome.text", "<gradient:#AA00AA:#BA55D3>Welcome {player}!</gradient>"), "extras.actionbar.welcome.text")
+            ),
+            new RandomMessagesActionBarConfig(
+                config.getBoolean("extras.actionbar.random-messages.enabled", false),
+                clampSecondsInterval(config.getInt("extras.actionbar.random-messages.interval-seconds", 300), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.random-messages.interval-seconds"),
+                Math.max(1, config.getInt("extras.actionbar.random-messages.duration-seconds", 5)),
+                loadRandomMessages(config)
+            ),
+            new BiomePopupActionBarConfig(
+                config.getBoolean("extras.actionbar.biome-popup.enabled", false),
+                clampTicksInterval(config.getInt("extras.actionbar.biome-popup.check-interval-ticks", 40), MIN_BIOME_CHECK_INTERVAL_TICKS, "extras.actionbar.biome-popup.check-interval-ticks"),
+                Math.max(1, config.getInt("extras.actionbar.biome-popup.duration-seconds", 7)),
+                validateMiniMessage(config.getString("extras.actionbar.biome-popup.text", "<gray>Entering <light_purple>{biome}</light_purple></gray>"), "extras.actionbar.biome-popup.text")
+            ),
+            new AchievementsActionBarConfig(
+                config.getBoolean("extras.actionbar.achievements.enabled", false),
+                config.getString("extras.actionbar.achievements.provider", "minecraft"),
+                clampSecondsInterval(config.getInt("extras.actionbar.achievements.interval-seconds", 60), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.achievements.interval-seconds"),
+                validateMiniMessage(config.getString("extras.actionbar.achievements.text", "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>"), "extras.actionbar.achievements.text")
+            ),
+            new NearestPlayerActionBarConfig(
+                config.getBoolean("extras.actionbar.nearest-player.enabled", false),
+                clampTicksInterval(config.getInt("extras.actionbar.nearest-player.check-interval-ticks", 60), MIN_NEAREST_PLAYER_CHECK_INTERVAL_TICKS, "extras.actionbar.nearest-player.check-interval-ticks"),
+                Math.max(1, config.getInt("extras.actionbar.nearest-player.max-distance", 100)),
+                config.getBoolean("extras.actionbar.nearest-player.same-world-only", true),
+                validateMiniMessage(config.getString("extras.actionbar.nearest-player.text", "<gray>Nearest: <light_purple>{player}</light_purple> <gray>({distance} blocks)</gray>"), "extras.actionbar.nearest-player.text")
+            ),
+            new StructurePopupActionBarConfig(
+                config.getBoolean("extras.actionbar.structure-popup.enabled", false),
+                config.getBoolean("extras.actionbar.structure-popup.experimental", true),
+                clampTicksInterval(config.getInt("extras.actionbar.structure-popup.check-interval-ticks", 200), MIN_STRUCTURE_CHECK_INTERVAL_TICKS, "extras.actionbar.structure-popup.check-interval-ticks"),
+                Math.max(1, config.getInt("extras.actionbar.structure-popup.max-distance", 64)),
+                Math.max(1, config.getInt("extras.actionbar.structure-popup.duration-seconds", 7)),
+                validateMiniMessage(config.getString("extras.actionbar.structure-popup.text", "<gray>Nearby structure: <light_purple>{structure}</light_purple></gray>"), "extras.actionbar.structure-popup.text")
+            )
+        );
+    }
+
+    private ActionBarTimerConfig loadActionBarTimerConfig(FileConfiguration config) {
+        String path = hasNewTimerConfig(config) ? "extras.actionbar.timer" : "extras.actionbar-timer";
+        return new ActionBarTimerConfig(
+            config.getBoolean(path + ".enabled", true),
+            validateMiniMessage(config.getString(path + ".running-format", "{time}"), path + ".running-format"),
+            validateMiniMessage(config.getString(path + ".paused-format", "Paused {time}"), path + ".paused-format"),
+            validateMiniMessage(config.getString(path + ".ended-format", "timer ends"), path + ".ended-format")
+        );
+    }
+
+    private boolean hasNewTimerConfig(FileConfiguration config) {
+        return config.isConfigurationSection("extras.actionbar.timer")
+            || config.contains("extras.actionbar.timer.enabled")
+            || config.contains("extras.actionbar.timer.running-format");
+    }
+
+    private List<String> loadRandomMessages(FileConfiguration config) {
+        if (!config.contains("extras.actionbar.random-messages.messages")) {
+            return List.of(
+                "<light_purple>Drink water! <3</light_purple>",
+                "<gray>Have a nice day!</gray>",
+                "<gradient:#AA00AA:#BA55D3>Thanks for playing!</gradient>"
+            );
+        }
+
+        List<String> entries = config.getStringList("extras.actionbar.random-messages.messages");
+        ArrayList<String> messages = new ArrayList<>();
+        int index = 0;
+        for (String entry : entries) {
+            if (entry == null || entry.isBlank()) {
+                continue;
+            }
+            messages.add(validateMiniMessage(entry, "extras.actionbar.random-messages.messages." + index));
+            index++;
+        }
+        return List.copyOf(messages);
+    }
+
+    private ZoneId resolveZoneId(String input) {
+        String zoneName = input == null || input.isBlank() ? "Europe/Berlin" : input.trim();
+        try {
+            return ZoneId.of(zoneName);
+        } catch (DateTimeException ex) {
+            logWarn("<color:#FF55FF>Invalid extras.actionbar.clock.timezone '" + zoneName + "'; falling back to Europe/Berlin.</color>");
+            return ZoneId.of("Europe/Berlin");
+        }
+    }
+
+    private String validateClockFormat(String input) {
+        String format = input == null || input.isBlank() ? "HH:mm" : input.trim();
+        try {
+            DateTimeFormatter.ofPattern(format);
+            return format;
+        } catch (IllegalArgumentException ex) {
+            logWarn("<color:#FF55FF>Invalid extras.actionbar.clock.format; falling back to HH:mm.</color>");
+            return "HH:mm";
+        }
+    }
+
+    private int clampSecondsInterval(int value, int min, String path) {
+        if (value >= min) {
+            return value;
+        }
+        logWarn("<color:#FF55FF>" + path + " was below " + min + " seconds; clamped.</color>");
+        return min;
+    }
+
+    private int clampTicksInterval(int value, int min, String path) {
+        if (value >= min) {
+            return value;
+        }
+        logWarn("<color:#FF55FF>" + path + " was below " + min + " ticks; clamped.</color>");
+        return min;
+    }
+
     private void trimTrailingBlankLines(ArrayList<String> lines) {
         for (int i = lines.size() - 1; i >= 0; i--) {
             if (!lines.get(i).isBlank()) {
@@ -695,7 +866,7 @@ public final class ConfigManager {
         Map<String, Integer> savedPerformancePresets,
         boolean guiEnabled,
         ScoreboardConfig scoreboardConfig,
-        ActionBarTimerConfig actionBarTimerConfig
+        ActionBarConfig actionBarConfig
     ) {
     }
 
@@ -729,6 +900,86 @@ public final class ConfigManager {
         String runningFormat,
         String pausedFormat,
         String endedFormat
+    ) {
+    }
+
+    public record ActionBarConfig(
+        boolean enabled,
+        ActionBarTimerConfig timer,
+        StopwatchActionBarConfig stopwatch,
+        ClockActionBarConfig clock,
+        WelcomeActionBarConfig welcome,
+        RandomMessagesActionBarConfig randomMessages,
+        BiomePopupActionBarConfig biomePopup,
+        AchievementsActionBarConfig achievements,
+        NearestPlayerActionBarConfig nearestPlayer,
+        StructurePopupActionBarConfig structurePopup
+    ) {
+    }
+
+    public record StopwatchActionBarConfig(
+        boolean enabled,
+        String text
+    ) {
+    }
+
+    public record ClockActionBarConfig(
+        boolean enabled,
+        ZoneId zoneId,
+        int intervalSeconds,
+        String format,
+        String text
+    ) {
+    }
+
+    public record WelcomeActionBarConfig(
+        boolean enabled,
+        int delayTicks,
+        int durationSeconds,
+        String text
+    ) {
+    }
+
+    public record RandomMessagesActionBarConfig(
+        boolean enabled,
+        int intervalSeconds,
+        int durationSeconds,
+        List<String> messages
+    ) {
+    }
+
+    public record BiomePopupActionBarConfig(
+        boolean enabled,
+        int checkIntervalTicks,
+        int durationSeconds,
+        String text
+    ) {
+    }
+
+    public record AchievementsActionBarConfig(
+        boolean enabled,
+        String provider,
+        int intervalSeconds,
+        String text
+    ) {
+    }
+
+    public record NearestPlayerActionBarConfig(
+        boolean enabled,
+        int checkIntervalTicks,
+        int maxDistance,
+        boolean sameWorldOnly,
+        String text
+    ) {
+    }
+
+    public record StructurePopupActionBarConfig(
+        boolean enabled,
+        boolean experimental,
+        int checkIntervalTicks,
+        int maxDistance,
+        int durationSeconds,
+        String text
     ) {
     }
 }

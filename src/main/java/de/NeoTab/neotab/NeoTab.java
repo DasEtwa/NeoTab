@@ -16,8 +16,18 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private TabUpdater tabUpdater;
     private UpdateChecker updateChecker;
     private ChatInputManager chatInputManager;
+    private ActionBarService actionBarService;
+    private ActionBarTextFormatter actionBarTextFormatter;
     private ScoreboardService scoreboardService;
     private ActionBarTimerService actionBarTimerService;
+    private StopwatchService stopwatchService;
+    private ClockActionBarModule clockActionBarModule;
+    private WelcomeActionBarModule welcomeActionBarModule;
+    private RandomActionBarModule randomActionBarModule;
+    private BiomePopupModule biomePopupModule;
+    private NearestPlayerModule nearestPlayerModule;
+    private AdvancementCounterModule advancementCounterModule;
+    private StructurePopupModule structurePopupModule;
     private NeoTabGui neoTabGui;
     private LuckPerms luckPerms;
     private boolean luckPermsWarned;
@@ -31,20 +41,37 @@ public final class NeoTab extends JavaPlugin implements Listener {
         tabUpdater = new TabUpdater(this, configManager);
         updateChecker = new UpdateChecker(this, configManager);
         chatInputManager = new ChatInputManager(this, configManager);
+        actionBarService = new ActionBarService(this, configManager);
+        actionBarTextFormatter = new ActionBarTextFormatter(this, configManager);
         scoreboardService = new ScoreboardService(this, configManager);
-        actionBarTimerService = new ActionBarTimerService(this, configManager);
+        actionBarTimerService = new ActionBarTimerService(this, configManager, actionBarService, actionBarTextFormatter);
+        stopwatchService = new StopwatchService(this, configManager, actionBarService, actionBarTextFormatter);
+        actionBarTimerService.setStopwatchService(stopwatchService);
+        stopwatchService.setTimerService(actionBarTimerService);
+        clockActionBarModule = new ClockActionBarModule(this, configManager, actionBarService, actionBarTextFormatter);
+        welcomeActionBarModule = new WelcomeActionBarModule(this, configManager, actionBarService, actionBarTextFormatter);
+        randomActionBarModule = new RandomActionBarModule(this, configManager, actionBarService, actionBarTextFormatter);
+        biomePopupModule = new BiomePopupModule(this, configManager, actionBarService, actionBarTextFormatter);
+        nearestPlayerModule = new NearestPlayerModule(this, configManager, actionBarService, actionBarTextFormatter);
+        advancementCounterModule = new AdvancementCounterModule(this, configManager, actionBarService, actionBarTextFormatter);
+        structurePopupModule = new StructurePopupModule(this, configManager);
         neoTabGui = new NeoTabGui(this, configManager, tabUpdater, scoreboardService, actionBarTimerService, chatInputManager);
         registerCommands();
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(chatInputManager, this);
+        getServer().getPluginManager().registerEvents(actionBarService, this);
         getServer().getPluginManager().registerEvents(scoreboardService, this);
         getServer().getPluginManager().registerEvents(actionBarTimerService, this);
+        getServer().getPluginManager().registerEvents(stopwatchService, this);
+        getServer().getPluginManager().registerEvents(welcomeActionBarModule, this);
+        getServer().getPluginManager().registerEvents(biomePopupModule, this);
         getServer().getPluginManager().registerEvents(neoTabGui, this);
         tabUpdater.initializeCounts(getServer().getOnlinePlayers().size(), getServer().getMaxPlayers());
         tabUpdater.start();
         tabUpdater.updateAllNow();
         scoreboardService.start();
+        startActionBarExtras();
         updateChecker.start();
 
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab enabled.</bold></gradient>");
@@ -61,6 +88,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (actionBarTimerService != null) {
             actionBarTimerService.stopAll();
         }
+        stopActionBarExtras();
         if (scoreboardService != null) {
             scoreboardService.stop();
         }
@@ -102,6 +130,28 @@ public final class NeoTab extends JavaPlugin implements Listener {
         return actionBarTimerService;
     }
 
+    public StopwatchService getStopwatchService() {
+        return stopwatchService;
+    }
+
+    public void restartActionBarExtras() {
+        if (actionBarService == null) {
+            return;
+        }
+
+        actionBarTextFormatter.refresh();
+        actionBarService.restart();
+        actionBarTimerService.restart();
+        stopwatchService.restart();
+        clockActionBarModule.restart();
+        welcomeActionBarModule.restart();
+        randomActionBarModule.restart();
+        biomePopupModule.restart();
+        nearestPlayerModule.restart();
+        advancementCounterModule.restart();
+        structurePopupModule.restart();
+    }
+
     public NeoTabGui getNeoTabGui() {
         return neoTabGui;
     }
@@ -140,9 +190,55 @@ public final class NeoTab extends JavaPlugin implements Listener {
             return;
         }
 
-        TabCommand tabCommand = new TabCommand(configManager, tabUpdater, updateChecker, chatInputManager, scoreboardService, actionBarTimerService, neoTabGui);
+        TabCommand tabCommand = new TabCommand(this, configManager, tabUpdater, updateChecker, chatInputManager, scoreboardService, actionBarTimerService, neoTabGui);
         command.setExecutor(tabCommand);
         command.setTabCompleter(tabCommand);
+    }
+
+    private void startActionBarExtras() {
+        actionBarService.start();
+        actionBarTimerService.restart();
+        stopwatchService.start();
+        clockActionBarModule.start();
+        welcomeActionBarModule.start();
+        randomActionBarModule.start();
+        biomePopupModule.start();
+        nearestPlayerModule.start();
+        advancementCounterModule.start();
+        structurePopupModule.start();
+    }
+
+    private void stopActionBarExtras() {
+        if (clockActionBarModule != null) {
+            clockActionBarModule.stop();
+        }
+        if (welcomeActionBarModule != null) {
+            welcomeActionBarModule.stop();
+        }
+        if (randomActionBarModule != null) {
+            randomActionBarModule.stop();
+        }
+        if (biomePopupModule != null) {
+            biomePopupModule.stop();
+        }
+        if (nearestPlayerModule != null) {
+            nearestPlayerModule.stop();
+        }
+        if (advancementCounterModule != null) {
+            advancementCounterModule.stop();
+        }
+        if (structurePopupModule != null) {
+            structurePopupModule.stop();
+        }
+        if (stopwatchService != null) {
+            stopwatchService.stopAll();
+        }
+        if (actionBarTimerService != null) {
+            actionBarTimerService.stopAll();
+        }
+        if (actionBarService != null) {
+            actionBarService.stop();
+        }
     }
 
     private void hookLuckPerms() {

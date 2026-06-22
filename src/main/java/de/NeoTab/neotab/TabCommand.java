@@ -1,5 +1,8 @@
 package de.NeoTab.neotab;
 
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -14,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public final class TabCommand implements CommandExecutor, TabCompleter {
+    private final NeoTab plugin;
     private final ConfigManager configManager;
     private final TabUpdater tabUpdater;
     private final UpdateChecker updateChecker;
@@ -24,6 +28,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
 
     public TabCommand(
+        NeoTab plugin,
         ConfigManager configManager,
         TabUpdater tabUpdater,
         UpdateChecker updateChecker,
@@ -32,6 +37,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         ActionBarTimerService actionBarTimerService,
         NeoTabGui neoTabGui
     ) {
+        this.plugin = plugin;
         this.configManager = configManager;
         this.tabUpdater = tabUpdater;
         this.updateChecker = updateChecker;
@@ -62,6 +68,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 updateChecker.start();
                 chatInputManager.cancelAll(true);
                 scoreboardService.restart();
+                plugin.restartActionBarExtras();
                 sender.sendMessage(configManager.message("reload-success"));
                 return true;
             }
@@ -118,6 +125,27 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             case "timer" -> {
                 return handleTimer(sender, args);
             }
+            case "stopwatch" -> {
+                return handleStopwatch(sender, args);
+            }
+            case "clock" -> {
+                return handleClock(sender, args);
+            }
+            case "welcome" -> {
+                return handleActionBarToggle(sender, args, "welcome", "neotab.extras.welcome", "Welcome");
+            }
+            case "randommessages", "randommessage" -> {
+                return handleActionBarToggle(sender, args, "random-messages", "neotab.extras.randommessages", "Random Messages");
+            }
+            case "biomepopup" -> {
+                return handleActionBarToggle(sender, args, "biome-popup", "neotab.extras.biome", "Biome Popup");
+            }
+            case "nearestplayer" -> {
+                return handleActionBarToggle(sender, args, "nearest-player", "neotab.extras.nearestplayer", "Nearest Player");
+            }
+            case "achievements" -> {
+                return handleActionBarToggle(sender, args, "achievements", "neotab.extras.achievements", "Achievements");
+            }
             default -> {
                 sender.sendMessage(configManager.message("command-unknown"));
                 return true;
@@ -139,6 +167,13 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "gui", "neotab.gui", prefix, sender);
             addIfAllowed(completions, "sb", "neotab.scoreboard", prefix, sender);
             addIfAllowed(completions, "timer", "neotab.timer", prefix, sender);
+            addIfAllowed(completions, "stopwatch", "neotab.extras.stopwatch", prefix, sender);
+            addIfAllowed(completions, "clock", "neotab.extras.clock", prefix, sender);
+            addIfAllowed(completions, "welcome", "neotab.extras.welcome", prefix, sender);
+            addIfAllowed(completions, "randommessages", "neotab.extras.randommessages", prefix, sender);
+            addIfAllowed(completions, "biomepopup", "neotab.extras.biome", prefix, sender);
+            addIfAllowed(completions, "nearestplayer", "neotab.extras.nearestplayer", prefix, sender);
+            addIfAllowed(completions, "achievements", "neotab.extras.achievements", prefix, sender);
             return completions;
         }
 
@@ -189,6 +224,18 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
         if (args[0].equalsIgnoreCase("timer") && sender.hasPermission("neotab.timer")) {
             completeTimer(completions, args);
+        }
+
+        if (args[0].equalsIgnoreCase("stopwatch") && sender.hasPermission("neotab.extras.stopwatch")) {
+            completeSimple(completions, args, List.of("start", "stop", "pause", "resume", "reset"));
+        }
+
+        if (args[0].equalsIgnoreCase("clock") && sender.hasPermission("neotab.extras.clock")) {
+            completeSimple(completions, args, List.of("on", "off", "timezone", "format"));
+        }
+
+        if (List.of("welcome", "randommessages", "biomepopup", "nearestplayer", "achievements").contains(args[0].toLowerCase(Locale.ROOT))) {
+            completeSimple(completions, args, List.of("on", "off"));
         }
 
         return completions;
@@ -508,6 +555,148 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private boolean handleStopwatch(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.extras.stopwatch")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(configManager.message("player-only"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("stopwatch-usage"));
+            return true;
+        }
+
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "start" -> {
+                boolean started = plugin.getStopwatchService().start(player);
+                sender.sendMessage(configManager.message(started ? "stopwatch-started" : "stopwatch-conflict"));
+                return true;
+            }
+            case "stop" -> {
+                boolean stopped = plugin.getStopwatchService().stop(player);
+                sender.sendMessage(configManager.message(stopped ? "stopwatch-stopped" : "stopwatch-not-running"));
+                return true;
+            }
+            case "pause" -> {
+                boolean paused = plugin.getStopwatchService().pause(player);
+                sender.sendMessage(configManager.message(paused ? "stopwatch-paused" : "stopwatch-not-running"));
+                return true;
+            }
+            case "resume" -> {
+                boolean resumed = plugin.getStopwatchService().resume(player);
+                sender.sendMessage(configManager.message(resumed ? "stopwatch-resumed" : "stopwatch-not-running"));
+                return true;
+            }
+            case "reset" -> {
+                boolean reset = plugin.getStopwatchService().reset(player);
+                sender.sendMessage(configManager.message(reset ? "stopwatch-reset" : "stopwatch-not-running"));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("stopwatch-usage"));
+                return true;
+            }
+        }
+    }
+
+    private boolean handleClock(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.extras.clock")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("clock-usage"));
+            return true;
+        }
+
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "on" -> {
+                setActionBarModule(sender, "clock", true, "Clock");
+                return true;
+            }
+            case "off" -> {
+                setActionBarModule(sender, "clock", false, "Clock");
+                return true;
+            }
+            case "timezone" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("clock-usage"));
+                    return true;
+                }
+                String timezone = args[2];
+                try {
+                    ZoneId.of(timezone);
+                } catch (DateTimeException ex) {
+                    sender.sendMessage(configManager.message("clock-invalid-timezone"));
+                    return true;
+                }
+                configManager.setClockTimezone(timezone);
+                plugin.restartActionBarExtras();
+                sender.sendMessage(configManager.message("clock-timezone-changed", Map.of("timezone", timezone)));
+                return true;
+            }
+            case "format" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("clock-usage"));
+                    return true;
+                }
+                String format = joinArgs(args, 2);
+                try {
+                    DateTimeFormatter.ofPattern(format);
+                } catch (IllegalArgumentException ex) {
+                    sender.sendMessage(configManager.message("clock-invalid-format"));
+                    return true;
+                }
+                configManager.setClockFormat(format);
+                plugin.restartActionBarExtras();
+                sender.sendMessage(configManager.message("clock-format-changed", Map.of("format", format)));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("clock-usage"));
+                return true;
+            }
+        }
+    }
+
+    private boolean handleActionBarToggle(CommandSender sender, String[] args, String moduleName, String permission, String displayName) {
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("actionbar-toggle-usage"));
+            return true;
+        }
+
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "on" -> {
+                setActionBarModule(sender, moduleName, true, displayName);
+                return true;
+            }
+            case "off" -> {
+                setActionBarModule(sender, moduleName, false, displayName);
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("actionbar-toggle-usage"));
+                return true;
+            }
+        }
+    }
+
+    private void setActionBarModule(CommandSender sender, String moduleName, boolean enabled, String displayName) {
+        configManager.setActionBarModuleEnabled(moduleName, enabled);
+        plugin.restartActionBarExtras();
+        sender.sendMessage(configManager.message(
+            enabled ? "actionbar-module-enabled" : "actionbar-module-disabled",
+            Map.of("module", displayName)
+        ));
+    }
+
     private boolean handleScoreboardInterval(CommandSender sender, String[] args) {
         if (args.length < 3) {
             sender.sendMessage(configManager.message("scoreboard-interval-usage"));
@@ -743,6 +932,18 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 if (duration.startsWith(prefix)) {
                     completions.add(duration);
                 }
+            }
+        }
+    }
+
+    private void completeSimple(List<String> completions, String[] args, List<String> options) {
+        if (args.length != 2) {
+            return;
+        }
+        String prefix = args[1].toLowerCase(Locale.ROOT);
+        for (String option : options) {
+            if (option.startsWith(prefix)) {
+                completions.add(option);
             }
         }
     }

@@ -32,7 +32,65 @@ scoreboard:
     - "&7RAM: &d{ram_used}&7/&d{ram_max} MB"
   presets: {}
 extras:
-  actionbar-timer:
+  actionbar:
+    enabled: true
+    timer:
+      enabled: true
+      running-format: "{time}"
+      paused-format: "Paused {time}"
+      ended-format: "timer ends"
+    stopwatch:
+      enabled: true
+      text: "<light_purple>Stopwatch {time}</light_purple>"
+    clock:
+      enabled: false
+      timezone: "Europe/Berlin"
+      interval-seconds: 60
+      min-interval-seconds: 60
+      format: "HH:mm"
+      text: "<gray>Time: <light_purple>{time}</light_purple></gray>"
+    welcome:
+      enabled: true
+      delay-ticks: 20
+      duration-seconds: 5
+      text: "<gradient:#AA00AA:#BA55D3>Welcome {player}!</gradient>"
+    random-messages:
+      enabled: false
+      interval-seconds: 300
+      min-interval-seconds: 60
+      duration-seconds: 5
+      messages:
+        - "<light_purple>Drink water! <3</light_purple>"
+        - "<gray>Have a nice day!</gray>"
+        - "<gradient:#AA00AA:#BA55D3>Thanks for playing!</gradient>"
+    biome-popup:
+      enabled: false
+      check-interval-ticks: 40
+      min-check-interval-ticks: 30
+      duration-seconds: 7
+      text: "<gray>Entering <light_purple>{biome}</light_purple></gray>"
+    achievements:
+      enabled: false
+      provider: "minecraft"
+      interval-seconds: 60
+      min-interval-seconds: 60
+      text: "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>"
+    nearest-player:
+      enabled: false
+      check-interval-ticks: 60
+      min-check-interval-ticks: 40
+      max-distance: 100
+      same-world-only: true
+      text: "<gray>Nearest: <light_purple>{player}</light_purple> <gray>({distance} blocks)</gray>"
+    structure-popup:
+      enabled: false
+      experimental: true
+      check-interval-ticks: 200
+      min-check-interval-ticks: 100
+      max-distance: 64
+      duration-seconds: 7
+      text: "<gray>Nearby structure: <light_purple>{structure}</light_purple></gray>"
+  actionbar-timer:              # legacy 1.2.0 path; still read when extras.actionbar.timer is missing
     enabled: true
     running-format: "{time}"
     paused-format: "Paused {time}"
