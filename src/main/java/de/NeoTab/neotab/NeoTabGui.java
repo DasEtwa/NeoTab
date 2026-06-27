@@ -261,8 +261,8 @@ public final class NeoTabGui implements Listener {
 
     private void openScoreboard(Player player) {
         Inventory inventory = createInventory(MenuType.SCOREBOARD, "NeoTab - Scoreboard");
-        boolean enabled = scoreboardService.isEnabled(player);
-        String toggleLore = enabled ? "Disable your sidebar scoreboard." : "Enable your sidebar scoreboard.";
+        boolean enabled = configManager.getScoreboardConfig().enabled();
+        String toggleLore = enabled ? "Disable and save the sidebar scoreboard." : "Enable and save the sidebar scoreboard.";
         inventory.setItem(10, item(enabled ? Material.REDSTONE_TORCH : Material.LEVER, "Toggle: " + (enabled ? "On" : "Off"), toggleLore));
         inventory.setItem(12, item(Material.OAK_SIGN, "Lines", "Edit lines 1-15."));
         inventory.setItem(14, item(Material.BOOK, "Presets", "Save or load scoreboard presets."));
@@ -278,7 +278,8 @@ public final class NeoTabGui implements Listener {
                     player.sendMessage(configManager.message("no-permission"));
                     return;
                 }
-                boolean enabled = scoreboardService.toggle(player);
+                boolean enabled = !configManager.getScoreboardConfig().enabled();
+                scoreboardService.setGlobalEnabled(enabled);
                 player.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
                 openScoreboard(player);
             }
@@ -562,9 +563,9 @@ public final class NeoTabGui implements Listener {
         inventory.setItem(10, item(Material.COMPASS, "Stopwatch", "Count upward from zero."));
         inventory.setItem(11, item(Material.DAYLIGHT_DETECTOR, "Clock: " + onOff(config.clock().enabled()), "Shows real time every " + config.clock().intervalSeconds() + "s."));
         inventory.setItem(12, item(Material.BELL, "Welcome: " + onOff(config.welcome().enabled()), "Shows a join ActionBar message."));
-        inventory.setItem(13, item(Material.PAPER, "Random: " + onOff(config.randomMessages().enabled()), "Shows occasional low-priority messages."));
+        inventory.setItem(13, item(Material.PAPER, "Random Messages: " + onOff(config.randomMessages().enabled()), "Shows occasional low-priority messages."));
         inventory.setItem(14, item(Material.GRASS_BLOCK, "Biome Popup: " + onOff(config.biomePopup().enabled()), "Shows when a player enters a new biome."));
-        inventory.setItem(15, item(Material.EXPERIENCE_BOTTLE, "Achievements: " + onOff(config.achievements().enabled()), "Counts Minecraft advancements."));
+        inventory.setItem(15, item(Material.EXPERIENCE_BOTTLE, "Achievements: " + onOff(config.achievements().enabled()), "Counts visible Minecraft advancements."));
         inventory.setItem(16, item(Material.REDSTONE_TORCH, "Performance Notice", "Nearest player and structure popup settings."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);

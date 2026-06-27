@@ -25,6 +25,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private final ScoreboardService scoreboardService;
     private final ActionBarTimerService actionBarTimerService;
     private final NeoTabGui neoTabGui;
+    private final RegionCommand regionCommand;
     private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
 
     public TabCommand(
@@ -35,7 +36,8 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         ChatInputManager chatInputManager,
         ScoreboardService scoreboardService,
         ActionBarTimerService actionBarTimerService,
-        NeoTabGui neoTabGui
+        NeoTabGui neoTabGui,
+        RegionCommand regionCommand
     ) {
         this.plugin = plugin;
         this.configManager = configManager;
@@ -45,6 +47,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         this.scoreboardService = scoreboardService;
         this.actionBarTimerService = actionBarTimerService;
         this.neoTabGui = neoTabGui;
+        this.regionCommand = regionCommand;
     }
 
     @Override
@@ -67,6 +70,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 tabUpdater.updateAllNow();
                 updateChecker.start();
                 chatInputManager.cancelAll(true);
+                plugin.getRegionManager().reload();
                 scoreboardService.restart();
                 plugin.restartActionBarExtras();
                 sender.sendMessage(configManager.message("reload-success"));
@@ -125,6 +129,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             case "timer" -> {
                 return handleTimer(sender, args);
             }
+            case "region", "regions" -> {
+                return regionCommand.handle(sender, args);
+            }
             case "stopwatch" -> {
                 return handleStopwatch(sender, args);
             }
@@ -135,7 +142,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 return handleActionBarToggle(sender, args, "welcome", "neotab.extras.welcome", "Welcome");
             }
             case "randommessages", "randommessage" -> {
-                return handleActionBarToggle(sender, args, "random-messages", "neotab.extras.randommessages", "Random Messages");
+                return handleRandomMessages(sender, args);
             }
             case "biomepopup" -> {
                 return handleActionBarToggle(sender, args, "biome-popup", "neotab.extras.biome", "Biome Popup");
@@ -167,6 +174,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "gui", "neotab.gui", prefix, sender);
             addIfAllowed(completions, "sb", "neotab.scoreboard", prefix, sender);
             addIfAllowed(completions, "timer", "neotab.timer", prefix, sender);
+            addIfAllowed(completions, "region", "neotab.region", prefix, sender);
             addIfAllowed(completions, "stopwatch", "neotab.extras.stopwatch", prefix, sender);
             addIfAllowed(completions, "clock", "neotab.extras.clock", prefix, sender);
             addIfAllowed(completions, "welcome", "neotab.extras.welcome", prefix, sender);
@@ -226,6 +234,10 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             completeTimer(completions, args);
         }
 
+        if ((args[0].equalsIgnoreCase("region") || args[0].equalsIgnoreCase("regions")) && sender.hasPermission("neotab.region")) {
+            completions.addAll(regionCommand.complete(sender, args));
+        }
+
         if (args[0].equalsIgnoreCase("stopwatch") && sender.hasPermission("neotab.extras.stopwatch")) {
             completeSimple(completions, args, List.of("start", "stop", "pause", "resume", "reset"));
         }
@@ -234,7 +246,11 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             completeSimple(completions, args, List.of("on", "off", "timezone", "format"));
         }
 
-        if (List.of("welcome", "randommessages", "biomepopup", "nearestplayer", "achievements").contains(args[0].toLowerCase(Locale.ROOT))) {
+        if (args[0].equalsIgnoreCase("randommessages") && sender.hasPermission("neotab.extras.randommessages")) {
+            completeSimple(completions, args, List.of("on", "off", "list", "add", "remove", "clear"));
+        }
+
+        if (List.of("welcome", "biomepopup", "nearestplayer", "achievements").contains(args[0].toLowerCase(Locale.ROOT))) {
             completeSimple(completions, args, List.of("on", "off"));
         }
 
@@ -324,14 +340,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(configManager.message("no-permission"));
                     return true;
                 }
-                if (sender instanceof Player player) {
-                    boolean enabled = scoreboardService.toggle(player);
-                    sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
-                } else {
-                    boolean enabled = !configManager.getScoreboardConfig().enabled();
-                    scoreboardService.setGlobalEnabled(enabled);
-                    sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
-                }
+                boolean enabled = !configManager.getScoreboardConfig().enabled();
+                scoreboardService.setGlobalEnabled(enabled);
+                sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
                 return true;
             }
             case "title" -> {
@@ -688,6 +699,78 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private boolean handleRandomMessages(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.extras.randommessages")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("randommessages-usage"));
+            return true;
+        }
+
+        switch (args[1].toLowerCase(Locale.ROOT)) {
+            case "on" -> {
+                setActionBarModule(sender, "random-messages", true, "Random Messages");
+                return true;
+            }
+            case "off" -> {
+                setActionBarModule(sender, "random-messages", false, "Random Messages");
+                return true;
+            }
+            case "list" -> {
+                List<String> messages = configManager.getRandomActionBarMessages();
+                if (messages.isEmpty()) {
+                    sender.sendMessage(configManager.message("randommessages-empty"));
+                    return true;
+                }
+                sender.sendMessage(configManager.message("randommessages-list-header", Map.of("count", Integer.toString(messages.size()))));
+                for (int index = 0; index < messages.size(); index++) {
+                    sender.sendMessage(configManager.message("randommessages-list-entry", Map.of(
+                        "index", Integer.toString(index + 1),
+                        "message", messages.get(index)
+                    )));
+                }
+                return true;
+            }
+            case "add" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("randommessages-add-usage"));
+                    return true;
+                }
+                String message = joinArgs(args, 2);
+                configManager.addRandomActionBarMessage(message);
+                plugin.restartActionBarExtras();
+                sender.sendMessage(configManager.message("randommessages-added", Map.of("message", message)));
+                return true;
+            }
+            case "remove", "delete" -> {
+                if (args.length < 3) {
+                    sender.sendMessage(configManager.message("randommessages-remove-usage"));
+                    return true;
+                }
+                Integer index = parsePositiveInteger(args[2]);
+                if (index == null || !configManager.removeRandomActionBarMessage(index)) {
+                    sender.sendMessage(configManager.message("randommessages-invalid-index"));
+                    return true;
+                }
+                plugin.restartActionBarExtras();
+                sender.sendMessage(configManager.message("randommessages-removed", Map.of("index", Integer.toString(index))));
+                return true;
+            }
+            case "clear" -> {
+                configManager.clearRandomActionBarMessages();
+                plugin.restartActionBarExtras();
+                sender.sendMessage(configManager.message("randommessages-cleared"));
+                return true;
+            }
+            default -> {
+                sender.sendMessage(configManager.message("randommessages-usage"));
+                return true;
+            }
+        }
+    }
+
     private void setActionBarModule(CommandSender sender, String moduleName, boolean enabled, String displayName) {
         configManager.setActionBarModuleEnabled(moduleName, enabled);
         plugin.restartActionBarExtras();
@@ -740,11 +823,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     }
 
     private void setScoreboardEnabled(CommandSender sender, boolean enabled) {
-        if (sender instanceof Player player) {
-            scoreboardService.setEnabled(player, enabled);
-        } else {
-            scoreboardService.setGlobalEnabled(enabled);
-        }
+        scoreboardService.setGlobalEnabled(enabled);
         sender.sendMessage(configManager.message(enabled ? "scoreboard-enabled" : "scoreboard-disabled"));
     }
 
@@ -853,6 +932,15 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 return null;
             }
             return lineNumber;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Integer parsePositiveInteger(String input) {
+        try {
+            int value = Integer.parseInt(input);
+            return value < 1 ? null : value;
         } catch (NumberFormatException ex) {
             return null;
         }

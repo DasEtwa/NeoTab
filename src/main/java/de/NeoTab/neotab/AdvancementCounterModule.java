@@ -3,6 +3,7 @@ package de.NeoTab.neotab;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import io.papermc.paper.advancement.AdvancementDisplay;
 import org.bukkit.Bukkit;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.entity.Player;
@@ -42,7 +43,7 @@ public final class AdvancementCounterModule implements ActionBarModule {
             public void run() {
                 updateAll();
             }
-        }.runTaskTimer(plugin, intervalTicks, intervalTicks);
+        }.runTaskTimer(plugin, 20L, intervalTicks);
     }
 
     @Override
@@ -59,9 +60,13 @@ public final class AdvancementCounterModule implements ActionBarModule {
         }
 
         List<Advancement> advancements = new ArrayList<>();
-        Bukkit.advancementIterator().forEachRemaining(advancements::add);
+        Bukkit.advancementIterator().forEachRemaining(advancement -> {
+            if (shouldCount(advancement)) {
+                advancements.add(advancement);
+            }
+        });
         int total = advancements.size();
-        long durationMillis = (Math.max(60L, config.intervalSeconds()) + 2L) * 1000L;
+        long durationMillis = Math.max(1L, config.durationSeconds()) * 1000L;
         for (Player player : Bukkit.getOnlinePlayers()) {
             int completed = 0;
             for (Advancement advancement : advancements) {
@@ -90,5 +95,10 @@ public final class AdvancementCounterModule implements ActionBarModule {
         }
         task.cancel();
         task = null;
+    }
+
+    private boolean shouldCount(Advancement advancement) {
+        AdvancementDisplay display = advancement.getDisplay();
+        return display != null && !display.isHidden();
     }
 }

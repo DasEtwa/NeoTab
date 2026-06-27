@@ -19,6 +19,13 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private ActionBarService actionBarService;
     private ActionBarTextFormatter actionBarTextFormatter;
     private ScoreboardService scoreboardService;
+    private RegionSelectionManager regionSelectionManager;
+    private WorldEditSelectionProvider worldEditSelectionProvider;
+    private RegionManager regionManager;
+    private RegionWandListener regionWandListener;
+    private RegionMoveListener regionMoveListener;
+    private RegionProfileGui regionProfileGui;
+    private RegionCommand regionCommand;
     private ActionBarTimerService actionBarTimerService;
     private StopwatchService stopwatchService;
     private ClockActionBarModule clockActionBarModule;
@@ -44,6 +51,14 @@ public final class NeoTab extends JavaPlugin implements Listener {
         actionBarService = new ActionBarService(this, configManager);
         actionBarTextFormatter = new ActionBarTextFormatter(this, configManager);
         scoreboardService = new ScoreboardService(this, configManager);
+        regionSelectionManager = new RegionSelectionManager();
+        worldEditSelectionProvider = new WorldEditSelectionProvider(this);
+        regionManager = new RegionManager(this, configManager, regionSelectionManager, worldEditSelectionProvider);
+        tabUpdater.setRegionManager(regionManager);
+        scoreboardService.setRegionManager(regionManager);
+        regionWandListener = new RegionWandListener(this, configManager, regionSelectionManager);
+        regionMoveListener = new RegionMoveListener(regionManager);
+        regionProfileGui = new RegionProfileGui(this, configManager, regionManager, regionSelectionManager, chatInputManager);
         actionBarTimerService = new ActionBarTimerService(this, configManager, actionBarService, actionBarTextFormatter);
         stopwatchService = new StopwatchService(this, configManager, actionBarService, actionBarTextFormatter);
         actionBarTimerService.setStopwatchService(stopwatchService);
@@ -56,12 +71,16 @@ public final class NeoTab extends JavaPlugin implements Listener {
         advancementCounterModule = new AdvancementCounterModule(this, configManager, actionBarService, actionBarTextFormatter);
         structurePopupModule = new StructurePopupModule(this, configManager);
         neoTabGui = new NeoTabGui(this, configManager, tabUpdater, scoreboardService, actionBarTimerService, chatInputManager);
+        regionCommand = new RegionCommand(configManager, regionManager, regionSelectionManager, regionWandListener, regionProfileGui);
         registerCommands();
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(chatInputManager, this);
         getServer().getPluginManager().registerEvents(actionBarService, this);
         getServer().getPluginManager().registerEvents(scoreboardService, this);
+        getServer().getPluginManager().registerEvents(regionWandListener, this);
+        getServer().getPluginManager().registerEvents(regionMoveListener, this);
+        getServer().getPluginManager().registerEvents(regionProfileGui, this);
         getServer().getPluginManager().registerEvents(actionBarTimerService, this);
         getServer().getPluginManager().registerEvents(stopwatchService, this);
         getServer().getPluginManager().registerEvents(welcomeActionBarModule, this);
@@ -91,6 +110,11 @@ public final class NeoTab extends JavaPlugin implements Listener {
         stopActionBarExtras();
         if (scoreboardService != null) {
             scoreboardService.stop();
+        }
+        if (regionManager != null) {
+            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
+                regionManager.handleQuit(player);
+            }
         }
         if (tabUpdater != null) {
             tabUpdater.stop();
@@ -124,6 +148,10 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
     public ScoreboardService getScoreboardService() {
         return scoreboardService;
+    }
+
+    public RegionManager getRegionManager() {
+        return regionManager;
     }
 
     public ActionBarTimerService getActionBarTimerService() {
@@ -174,12 +202,18 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (scoreboardService != null) {
             scoreboardService.handleJoin(event.getPlayer());
         }
+        if (regionManager != null) {
+            getServer().getScheduler().runTaskLater(this, () -> regionManager.handleMove(event.getPlayer()), 5L);
+        }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (tabUpdater != null) {
             tabUpdater.handleQuit();
+        }
+        if (regionManager != null) {
+            regionManager.handleQuit(event.getPlayer());
         }
     }
 
@@ -190,7 +224,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             return;
         }
 
-        TabCommand tabCommand = new TabCommand(this, configManager, tabUpdater, updateChecker, chatInputManager, scoreboardService, actionBarTimerService, neoTabGui);
+        TabCommand tabCommand = new TabCommand(this, configManager, tabUpdater, updateChecker, chatInputManager, scoreboardService, actionBarTimerService, neoTabGui, regionCommand);
         command.setExecutor(tabCommand);
         command.setTabCompleter(tabCommand);
     }

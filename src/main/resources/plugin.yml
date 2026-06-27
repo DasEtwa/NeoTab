@@ -2,14 +2,14 @@ name: NeoTab
 version: "${version}"
 main: de.NeoTab.neotab.NeoTab
 api-version: "1.20"
-softdepend: [LuckPerms, PlaceholderAPI]
+softdepend: [LuckPerms, PlaceholderAPI, WorldEdit, FastAsyncWorldEdit]
 description: Animated tablist header and footer with stats, PlaceholderAPI support, and toggles
 author: muffinonboard aka DasEtwa
 
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style|color|performance|gui|sb|timer|stopwatch|clock>
+    usage: /tab <reload|setname|style|color|performance|gui|sb|timer|region|stopwatch|clock>
     aliases: [neotab]
 
 permissions:
@@ -29,6 +29,7 @@ permissions:
       neotab.scoreboard.presets: true
       neotab.timer: true
       neotab.timer.admin: true
+      neotab.region: true
       neotab.extras: true
       neotab.extras.actionbar: true
       neotab.extras.clock: true
@@ -76,6 +77,9 @@ permissions:
   neotab.timer.admin:
     description: Reserved for future ActionBar Timer admin controls
     default: op
+  neotab.region:
+    description: Allows managing NeoTab Region Profiles
+    default: op
   neotab.extras:
     description: Allows using NeoTab Extras
     default: op
@@ -89,7 +93,7 @@ permissions:
     description: Allows toggling the ActionBar welcome message
     default: op
   neotab.extras.randommessages:
-    description: Allows toggling random ActionBar messages
+    description: Allows toggling and managing random ActionBar messages
     default: op
   neotab.extras.stopwatch:
     description: Allows using the ActionBar Stopwatch
@@ -126,6 +130,7 @@ permissions:
       neotab.scoreboard.presets: true
       neotab.timer: true
       neotab.timer.admin: true
+      neotab.region: true
       neotab.extras: true
       neotab.extras.actionbar: true
       neotab.extras.clock: true

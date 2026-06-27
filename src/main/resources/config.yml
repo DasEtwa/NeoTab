@@ -1,4 +1,4 @@
-server-name: "<gradient:#AA00AA:#BA55D3>Mein Epic Server</gradient>"
+server-name: "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>"
 animation-style: "rainbow"  # rainbow, purple-pulse, gradient-wave, static
 header:
   bold-animation: false      # true restores the old bold animated header style
@@ -19,6 +19,16 @@ update-checker:
   check-delay-seconds: 5
 gui:
   enabled: true
+tab-profiles:
+  spawn:
+    server-name: "<gradient:#AA00AA:#BA55D3>Spawn</gradient>"
+    animation-style: "static"
+    header:
+      bold-animation: false
+    custom-colors:
+      - "#AA00AA"
+      - "#BA55D3"
+    ram-format: "<gray>Spawn | Online: <light_purple>{online}</light_purple>/<light_purple>{max}</light_purple> | Ping: {playerPing}ms</gray>"
 scoreboard:
   enabled: false
   update-interval-ticks: 20
@@ -60,9 +70,70 @@ extras:
       min-interval-seconds: 60
       duration-seconds: 5
       messages:
-        - "<light_purple>Drink water! <3</light_purple>"
-        - "<gray>Have a nice day!</gray>"
-        - "<gradient:#AA00AA:#BA55D3>Thanks for playing!</gradient>"
+        - "Drink water! <3"
+        - "Stay hydrated!"
+        - "Take a small break :)"
+        - "Remember to stretch!"
+        - "Don't forget to blink :)"
+        - "Have fun playing!"
+        - "Good luck and have fun!"
+        - "Be kind to other players <3"
+        - "Enjoy your stay!"
+        - "Need help? Use /help"
+        - "Join our Discord with /discord"
+        - "Found a bug? Tell the staff!"
+        - "Invite your friends :)"
+        - "Explore, build, survive!"
+        - "Your adventure starts here!"
+        - "Stay awesome!"
+        - "Keep calm and mine on!"
+        - "Watch your back!"
+        - "Don't dig straight down!"
+        - "Diamonds are waiting for you!"
+        - "Teamwork makes it easier!"
+        - "Respect other players."
+        - "A friendly chat makes the server better."
+        - "Take care of your inventory!"
+        - "Remember to set your home."
+        - "Check out the server rules."
+        - "Use /spawn to return safely."
+        - "New here? Ask the team for help!"
+        - "Thanks for playing on this server!"
+        - "Have a cozy session :)"
+      inactive-message-packs:
+        german:
+          enabled: false
+          messages:
+            - "Trink genug Wasser! <3"
+            - "Bleib hydriert!"
+            - "Mach kurz Pause :)"
+            - "Denk ans Strecken!"
+            - "Vergiss nicht zu blinzeln :)"
+            - "Viel Spaß beim Spielen!"
+            - "Viel Glück und viel Spaß!"
+            - "Sei nett zu anderen Spielern <3"
+            - "Schön, dass du da bist!"
+            - "Brauchst du Hilfe? Nutze /help"
+            - "Join unserem Discord mit /discord"
+            - "Bug gefunden? Sag dem Team Bescheid!"
+            - "Lad deine Freunde ein :)"
+            - "Erkunde, baue, überlebe!"
+            - "Dein Abenteuer beginnt hier!"
+            - "Bleib korrekt!"
+            - "Immer schön weiter craften!"
+            - "Pass auf dich auf!"
+            - "Grab nicht direkt nach unten!"
+            - "Diamanten warten auf dich!"
+            - "Zusammen geht's leichter!"
+            - "Respektiere andere Spieler."
+            - "Ein netter Chat macht den Server besser."
+            - "Pass auf dein Inventar auf!"
+            - "Vergiss nicht, dein Zuhause zu setzen."
+            - "Schau dir die Serverregeln an."
+            - "Nutze /spawn, um sicher zurückzukommen."
+            - "Neu hier? Frag einfach das Team!"
+            - "Danke, dass du auf diesem Server spielst!"
+            - "Hab eine entspannte Session :)"
     biome-popup:
       enabled: false
       check-interval-ticks: 40
@@ -74,6 +145,7 @@ extras:
       provider: "minecraft"
       interval-seconds: 60
       min-interval-seconds: 60
+      duration-seconds: 5
       text: "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>"
     nearest-player:
       enabled: false

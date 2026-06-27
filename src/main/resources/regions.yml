@@ -1,0 +1,15 @@
+regions:
+  spawn:
+    enabled: false
+    world: "world"
+    priority: 100
+    min:
+      x: -50
+      y: 60
+      z: -50
+    max:
+      x: 50
+      y: 120
+      z: 50
+    tab-profile: "spawn"
+    scoreboard-profile: "spawn"

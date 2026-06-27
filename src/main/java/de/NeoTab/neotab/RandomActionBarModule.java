@@ -43,7 +43,7 @@ public final class RandomActionBarModule implements ActionBarModule {
             public void run() {
                 showRandomMessage();
             }
-        }.runTaskTimer(plugin, intervalTicks, intervalTicks);
+        }.runTaskTimer(plugin, 20L, intervalTicks);
     }
 
     @Override

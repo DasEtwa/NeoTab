@@ -59,7 +59,7 @@ public final class ConfigManager {
         plugin.reloadConfig();
         FileConfiguration config = plugin.getConfig();
 
-        String serverName = config.getString("server-name", "<gradient:#AA00AA:#BA55D3>Mein Epic Server</gradient>");
+        String serverName = config.getString("server-name", "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>");
         String footerFormat = config.getString("ram-format", "<gray>RAM: <light_purple>{used}MB / {total}MB ({percent}%)</light_purple></gray>");
         Map<String, Integer> performancePresets = loadPerformancePresets(config);
         Map<String, Integer> savedPerformancePresets = loadPerformanceValues(config, "performance.saved-presets");
@@ -98,6 +98,16 @@ public final class ConfigManager {
         String validatedFooter = validateMiniMessage(footerFormat, "ram-format");
         Component serverComponent = deserialize(validatedServerName, "server-name");
         String serverPlain = PlainTextComponentSerializer.plainText().serialize(serverComponent);
+        TabProfile defaultTabProfile = new TabProfile(
+            "default",
+            validatedServerName,
+            serverPlain,
+            style,
+            List.copyOf(colors),
+            validatedFooter,
+            headerBoldAnimation
+        );
+        Map<String, TabProfile> tabProfiles = loadTabProfiles(config, defaultTabProfile);
 
         snapshot.set(new ConfigSnapshot(
             validatedServerName,
@@ -114,6 +124,7 @@ public final class ConfigManager {
             performancePresets,
             savedPerformancePresets,
             guiEnabled,
+            tabProfiles,
             scoreboardConfig,
             actionBarConfig
         ));
@@ -316,6 +327,37 @@ public final class ConfigManager {
         reload();
     }
 
+    public List<String> getRandomActionBarMessages() {
+        return getActionBarConfig().randomMessages().messages();
+    }
+
+    public void addRandomActionBarMessage(String message) {
+        ArrayList<String> messages = new ArrayList<>(getRandomActionBarMessages());
+        messages.add(validateMiniMessage(message, "extras.actionbar.random-messages.messages." + messages.size()));
+        setRandomActionBarMessages(messages);
+    }
+
+    public boolean removeRandomActionBarMessage(int oneBasedIndex) {
+        ArrayList<String> messages = new ArrayList<>(getRandomActionBarMessages());
+        int index = oneBasedIndex - 1;
+        if (index < 0 || index >= messages.size()) {
+            return false;
+        }
+        messages.remove(index);
+        setRandomActionBarMessages(messages);
+        return true;
+    }
+
+    public void clearRandomActionBarMessages() {
+        setRandomActionBarMessages(List.of());
+    }
+
+    public void setRandomActionBarMessages(List<String> messages) {
+        plugin.getConfig().set("extras.actionbar.random-messages.messages", messages == null ? List.of() : List.copyOf(messages));
+        plugin.saveConfig();
+        reload();
+    }
+
     public void setClockTimezone(String timezone) {
         plugin.getConfig().set("extras.actionbar.clock.timezone", timezone);
         plugin.saveConfig();
@@ -425,6 +467,59 @@ public final class ConfigManager {
 
     public ScoreboardConfig getScoreboardConfig() {
         return snapshot.get().scoreboardConfig();
+    }
+
+    public TabProfile getTabProfile(String profileName) {
+        String normalizedProfile = normalizePerformancePresetName(profileName);
+        if (normalizedProfile.isEmpty() || normalizedProfile.equals("default")) {
+            return snapshot.get().defaultTabProfile();
+        }
+
+        TabProfile profile = snapshot.get().tabProfiles().get(normalizedProfile);
+        return profile == null ? snapshot.get().defaultTabProfile() : profile;
+    }
+
+    public boolean hasTabProfile(String profileName) {
+        String normalizedProfile = normalizePerformancePresetName(profileName);
+        return normalizedProfile.equals("default") || snapshot.get().tabProfiles().containsKey(normalizedProfile);
+    }
+
+    public ScoreboardProfile getScoreboardProfile(String profileName) {
+        String normalizedProfile = normalizePerformancePresetName(profileName);
+        ScoreboardConfig scoreboardConfig = getScoreboardConfig();
+        if (normalizedProfile.isEmpty() || normalizedProfile.equals("default")) {
+            return new ScoreboardProfile(
+                "default",
+                scoreboardConfig.title(),
+                scoreboardConfig.titleAnimationEnabled(),
+                scoreboardConfig.titleAnimationStyle(),
+                scoreboardConfig.lines()
+            );
+        }
+
+        ScoreboardPreset preset = scoreboardConfig.presets().get(normalizedProfile);
+        if (preset == null) {
+            return new ScoreboardProfile(
+                "default",
+                scoreboardConfig.title(),
+                scoreboardConfig.titleAnimationEnabled(),
+                scoreboardConfig.titleAnimationStyle(),
+                scoreboardConfig.lines()
+            );
+        }
+
+        return new ScoreboardProfile(
+            normalizedProfile,
+            preset.title(),
+            scoreboardConfig.titleAnimationEnabled(),
+            scoreboardConfig.titleAnimationStyle(),
+            preset.lines()
+        );
+    }
+
+    public boolean hasScoreboardProfile(String profileName) {
+        String normalizedProfile = normalizePerformancePresetName(profileName);
+        return normalizedProfile.equals("default") || getScoreboardConfig().presets().containsKey(normalizedProfile);
     }
 
     public ActionBarTimerConfig getActionBarTimerConfig() {
@@ -586,6 +681,49 @@ public final class ConfigManager {
         return Collections.unmodifiableMap(presets);
     }
 
+    private Map<String, TabProfile> loadTabProfiles(FileConfiguration config, TabProfile defaultProfile) {
+        ConfigurationSection section = config.getConfigurationSection("tab-profiles");
+        if (section == null) {
+            return Collections.emptyMap();
+        }
+
+        LinkedHashMap<String, TabProfile> profiles = new LinkedHashMap<>();
+        for (String key : section.getKeys(false)) {
+            String normalizedKey = normalizePerformancePresetName(key);
+            if (normalizedKey.equals("default")) {
+                continue;
+            }
+            if (!isValidPerformancePresetName(normalizedKey)) {
+                logWarn("<color:#FF55FF>Invalid tab profile in config.yml: " + key + "</color>");
+                continue;
+            }
+
+            String path = "tab-profiles." + key;
+            String serverNameRaw = validateMiniMessage(config.getString(path + ".server-name", defaultProfile.serverNameRaw()), path + ".server-name");
+            Component serverComponent = deserialize(serverNameRaw, path + ".server-name");
+            String serverPlain = PlainTextComponentSerializer.plainText().serialize(serverComponent);
+            AnimationUtils.Style style = resolveStyle(config.getString(path + ".animation-style", defaultProfile.style().id()), defaultProfile.style(), path + ".animation-style");
+            List<TextColor> profileColors = config.contains(path + ".custom-colors") ? parseColors(config.getStringList(path + ".custom-colors")) : defaultProfile.customColors();
+            if (profileColors.isEmpty()) {
+                logWarn("<color:#FF55FF>No valid custom-colors found for tab profile " + normalizedKey + "; using default colors.</color>");
+                profileColors = defaultProfile.customColors();
+            }
+            String footerFormat = validateMiniMessage(config.getString(path + ".ram-format", defaultProfile.footerFormat()), path + ".ram-format");
+            boolean boldAnimation = config.getBoolean(path + ".header.bold-animation", defaultProfile.headerBoldAnimation());
+
+            profiles.put(normalizedKey, new TabProfile(
+                normalizedKey,
+                serverNameRaw,
+                serverPlain,
+                style,
+                List.copyOf(profileColors),
+                footerFormat,
+                boldAnimation
+            ));
+        }
+        return Collections.unmodifiableMap(profiles);
+    }
+
     private ActionBarConfig loadActionBarConfig(FileConfiguration config) {
         return new ActionBarConfig(
             config.getBoolean("extras.actionbar.enabled", true),
@@ -623,6 +761,7 @@ public final class ConfigManager {
                 config.getBoolean("extras.actionbar.achievements.enabled", false),
                 config.getString("extras.actionbar.achievements.provider", "minecraft"),
                 clampSecondsInterval(config.getInt("extras.actionbar.achievements.interval-seconds", 60), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.achievements.interval-seconds"),
+                Math.max(1, config.getInt("extras.actionbar.achievements.duration-seconds", 5)),
                 validateMiniMessage(config.getString("extras.actionbar.achievements.text", "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>"), "extras.actionbar.achievements.text")
             ),
             new NearestPlayerActionBarConfig(
@@ -662,9 +801,36 @@ public final class ConfigManager {
     private List<String> loadRandomMessages(FileConfiguration config) {
         if (!config.contains("extras.actionbar.random-messages.messages")) {
             return List.of(
-                "<light_purple>Drink water! <3</light_purple>",
-                "<gray>Have a nice day!</gray>",
-                "<gradient:#AA00AA:#BA55D3>Thanks for playing!</gradient>"
+                "Drink water! <3",
+                "Stay hydrated!",
+                "Take a small break :)",
+                "Remember to stretch!",
+                "Don't forget to blink :)",
+                "Have fun playing!",
+                "Good luck and have fun!",
+                "Be kind to other players <3",
+                "Enjoy your stay!",
+                "Need help? Use /help",
+                "Join our Discord with /discord",
+                "Found a bug? Tell the staff!",
+                "Invite your friends :)",
+                "Explore, build, survive!",
+                "Your adventure starts here!",
+                "Stay awesome!",
+                "Keep calm and mine on!",
+                "Watch your back!",
+                "Don't dig straight down!",
+                "Diamonds are waiting for you!",
+                "Teamwork makes it easier!",
+                "Respect other players.",
+                "A friendly chat makes the server better.",
+                "Take care of your inventory!",
+                "Remember to set your home.",
+                "Check out the server rules.",
+                "Use /spawn to return safely.",
+                "New here? Ask the team for help!",
+                "Thanks for playing on this server!",
+                "Have a cozy session :)"
             );
         }
 
@@ -865,9 +1031,21 @@ public final class ConfigManager {
         Map<String, Integer> performancePresets,
         Map<String, Integer> savedPerformancePresets,
         boolean guiEnabled,
+        Map<String, TabProfile> tabProfiles,
         ScoreboardConfig scoreboardConfig,
         ActionBarConfig actionBarConfig
     ) {
+        private TabProfile defaultTabProfile() {
+            return new TabProfile(
+                "default",
+                serverNameRaw,
+                serverNamePlain,
+                style,
+                customColors,
+                footerFormat,
+                headerBoldAnimation
+            );
+        }
     }
 
     public record UpdateCheckerConfig(
@@ -891,6 +1069,26 @@ public final class ConfigManager {
 
     public record ScoreboardPreset(
         String title,
+        List<String> lines
+    ) {
+    }
+
+    public record TabProfile(
+        String name,
+        String serverNameRaw,
+        String serverNamePlain,
+        AnimationUtils.Style style,
+        List<TextColor> customColors,
+        String footerFormat,
+        boolean headerBoldAnimation
+    ) {
+    }
+
+    public record ScoreboardProfile(
+        String name,
+        String title,
+        boolean titleAnimationEnabled,
+        AnimationUtils.Style titleAnimationStyle,
         List<String> lines
     ) {
     }
@@ -960,6 +1158,7 @@ public final class ConfigManager {
         boolean enabled,
         String provider,
         int intervalSeconds,
+        int durationSeconds,
         String text
     ) {
     }

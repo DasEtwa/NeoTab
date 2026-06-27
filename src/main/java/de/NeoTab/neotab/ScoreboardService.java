@@ -47,6 +47,7 @@ public final class ScoreboardService implements Listener {
     private final Set<UUID> enabledPlayers;
     private final Set<UUID> disabledPlayers;
 
+    private RegionManager regionManager;
     private BukkitTask task;
     private int animationTick;
 
@@ -57,6 +58,10 @@ public final class ScoreboardService implements Listener {
         sessions = new HashMap<>();
         enabledPlayers = new HashSet<>();
         disabledPlayers = new HashSet<>();
+    }
+
+    public void setRegionManager(RegionManager regionManager) {
+        this.regionManager = regionManager;
     }
 
     public void start() {
@@ -100,7 +105,9 @@ public final class ScoreboardService implements Listener {
     }
 
     private boolean shouldRunTask() {
-        return configManager.getScoreboardConfig().enabled() || !enabledPlayers.isEmpty();
+        return configManager.getScoreboardConfig().enabled()
+            || !enabledPlayers.isEmpty()
+            || Bukkit.getOnlinePlayers().stream().anyMatch(this::hasRegionScoreboardProfile);
     }
 
     public boolean toggle(Player player) {
@@ -139,8 +146,8 @@ public final class ScoreboardService implements Listener {
             return;
         }
 
-        clearAllSessions();
-        stopTaskOnly();
+        updateAll();
+        stopTaskIfIdle();
     }
 
     private void clearAllSessions() {
@@ -209,7 +216,20 @@ public final class ScoreboardService implements Listener {
         if (enabledPlayers.contains(uuid)) {
             return true;
         }
+        if (hasRegionScoreboardProfile(player)) {
+            return !disabledPlayers.contains(uuid);
+        }
         return configManager.getScoreboardConfig().enabled() && !disabledPlayers.contains(uuid);
+    }
+
+    public void handleRegionProfileChange(Player player) {
+        if (isEnabled(player)) {
+            startTaskIfNeeded();
+            update(player, buildRenderContext(), animationTick);
+            return;
+        }
+        clear(player);
+        stopTaskIfIdle();
     }
 
     public void updateAll() {
@@ -258,15 +278,15 @@ public final class ScoreboardService implements Listener {
 
     private void update(Player player, ScoreboardRenderContext renderContext, int titleTick) {
         BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession());
-        ConfigManager.ScoreboardConfig scoreboardConfig = configManager.getScoreboardConfig();
+        ConfigManager.ScoreboardProfile scoreboardProfile = activeScoreboardProfile(player);
 
-        String renderedTitle = renderTitle(player, scoreboardConfig, renderContext, titleTick);
+        String renderedTitle = renderTitle(player, scoreboardProfile, renderContext, titleTick);
         if (!renderedTitle.equals(session.title())) {
             session.objective().setDisplayName(renderedTitle);
             session.setTitle(renderedTitle);
         }
 
-        List<String> lines = scoreboardConfig.lines();
+        List<String> lines = scoreboardProfile.lines();
         int visibleLineCount = Math.min(lines.size(), ConfigManager.MAX_SCOREBOARD_LINES);
 
         for (int index = 0; index < ConfigManager.MAX_SCOREBOARD_LINES; index++) {
@@ -332,12 +352,12 @@ public final class ScoreboardService implements Listener {
         return new ScoreboardRenderContext(online, max, usedMb, maxMb, percent, avgPing);
     }
 
-    private String renderTitle(Player player, ConfigManager.ScoreboardConfig scoreboardConfig, ScoreboardRenderContext renderContext, int titleTick) {
-        if (!scoreboardConfig.titleAnimationEnabled()) {
-            return trimScoreboardText(renderText(player, scoreboardConfig.title(), "scoreboard.title", renderContext));
+    private String renderTitle(Player player, ConfigManager.ScoreboardProfile scoreboardProfile, ScoreboardRenderContext renderContext, int titleTick) {
+        if (!scoreboardProfile.titleAnimationEnabled()) {
+            return trimScoreboardText(renderText(player, scoreboardProfile.title(), "scoreboard.title", renderContext));
         }
 
-        String resolved = replaceInternalPlaceholders(player, scoreboardConfig.title(), renderContext);
+        String resolved = replaceInternalPlaceholders(player, scoreboardProfile.title(), renderContext);
         if (configManager.isPlaceholderApiEnabled()) {
             resolved = placeholderSupport.setPlaceholders(player, resolved);
         }
@@ -345,7 +365,7 @@ public final class ScoreboardService implements Listener {
         return trimScoreboardText(AnimationUtils.buildLegacyText(
             plain,
             configManager.getCustomColors(),
-            scoreboardConfig.titleAnimationStyle(),
+            scoreboardProfile.titleAnimationStyle(),
             titleTick,
             false
         ));
@@ -377,7 +397,19 @@ public final class ScoreboardService implements Listener {
             .replace("{ram_percent}", Integer.toString(renderContext.percent()))
             .replace("{player}", player.getName())
             .replace("{player_name}", player.getName())
-            .replace("{server_name}", configManager.getServerNamePlain());
+            .replace("{server_name}", activeTabProfile(player).serverNamePlain());
+    }
+
+    private ConfigManager.ScoreboardProfile activeScoreboardProfile(Player player) {
+        return configManager.getScoreboardProfile(regionManager == null ? "default" : regionManager.activeScoreboardProfile(player));
+    }
+
+    private ConfigManager.TabProfile activeTabProfile(Player player) {
+        return configManager.getTabProfile(regionManager == null ? "default" : regionManager.activeTabProfile(player));
+    }
+
+    private boolean hasRegionScoreboardProfile(Player player) {
+        return regionManager != null && regionManager.hasActiveScoreboardProfile(player);
     }
 
     private int computeAveragePing() {
