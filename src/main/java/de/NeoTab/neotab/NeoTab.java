@@ -167,6 +167,11 @@ public final class NeoTab extends JavaPlugin implements Listener {
             return;
         }
 
+        if (!isActionBarGloballyEnabled()) {
+            stopActionBarExtras();
+            return;
+        }
+
         actionBarTextFormatter.refresh();
         actionBarService.restart();
         actionBarTimerService.restart();
@@ -230,6 +235,11 @@ public final class NeoTab extends JavaPlugin implements Listener {
     }
 
     private void startActionBarExtras() {
+        if (!isActionBarGloballyEnabled()) {
+            stopActionBarExtras();
+            return;
+        }
+
         actionBarService.start();
         actionBarTimerService.restart();
         stopwatchService.start();
@@ -273,6 +283,10 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (actionBarService != null) {
             actionBarService.stop();
         }
+    }
+
+    private boolean isActionBarGloballyEnabled() {
+        return configManager != null && configManager.getActionBarConfig().enabled();
     }
 
     private void hookLuckPerms() {

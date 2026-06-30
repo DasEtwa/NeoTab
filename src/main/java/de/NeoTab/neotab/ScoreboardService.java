@@ -277,7 +277,7 @@ public final class ScoreboardService implements Listener {
     }
 
     private void update(Player player, ScoreboardRenderContext renderContext, int titleTick) {
-        BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession());
+        BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession(player.getScoreboard()));
         ConfigManager.ScoreboardProfile scoreboardProfile = activeScoreboardProfile(player);
 
         String renderedTitle = renderTitle(player, scoreboardProfile, renderContext, titleTick);
@@ -317,7 +317,7 @@ public final class ScoreboardService implements Listener {
         }
     }
 
-    private BoardSession createSession() {
+    private BoardSession createSession(Scoreboard previousScoreboard) {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         Objective objective = scoreboard.registerNewObjective("neotab", "dummy", "NeoTab");
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
@@ -329,7 +329,7 @@ public final class ScoreboardService implements Listener {
             teams.put(index, team);
         }
 
-        return new BoardSession(scoreboard, objective, teams);
+        return new BoardSession(scoreboard, objective, teams, previousScoreboard);
     }
 
     private void clear(Player player) {
@@ -338,7 +338,9 @@ public final class ScoreboardService implements Listener {
             return;
         }
 
-        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        if (player.getScoreboard() == removed.scoreboard()) {
+            player.setScoreboard(removed.previousScoreboard());
+        }
     }
 
     private ScoreboardRenderContext buildRenderContext() {
@@ -460,14 +462,16 @@ public final class ScoreboardService implements Listener {
         private final Scoreboard scoreboard;
         private final Objective objective;
         private final Map<Integer, Team> teams;
+        private final Scoreboard previousScoreboard;
         private final String[] lines;
         private final boolean[] visibleLines;
         private String title;
 
-        private BoardSession(Scoreboard scoreboard, Objective objective, Map<Integer, Team> teams) {
+        private BoardSession(Scoreboard scoreboard, Objective objective, Map<Integer, Team> teams, Scoreboard previousScoreboard) {
             this.scoreboard = scoreboard;
             this.objective = objective;
             this.teams = teams;
+            this.previousScoreboard = previousScoreboard;
             lines = new String[ConfigManager.MAX_SCOREBOARD_LINES];
             visibleLines = new boolean[ConfigManager.MAX_SCOREBOARD_LINES];
             title = "";
@@ -486,6 +490,10 @@ public final class ScoreboardService implements Listener {
 
         private Map<Integer, Team> teams() {
             return teams;
+        }
+
+        private Scoreboard previousScoreboard() {
+            return previousScoreboard == null ? Bukkit.getScoreboardManager().getMainScoreboard() : previousScoreboard;
         }
 
         private String title() {

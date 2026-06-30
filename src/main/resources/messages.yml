@@ -1,5 +1,5 @@
 no-permission: "<gradient:#AA00AA:#BA55D3><bold>No permission.</bold></gradient>"
-usage: "<gray>Usage: <light_purple>/tab [reload|setname|style|color|performance|gui|sb|timer|region|stopwatch|clock]</light_purple></gray>"
+usage: "<gray>Usage: <light_purple>/tab [reload|setname|style|color|performance|gui|sb|timer|region|stopwatch|clock|welcome|randommessages|biomepopup|nearestplayer|achievements]</light_purple></gray>"
 player-only: "<gray>This command can only be used by a player.</gray>"
 reload-success: "<gradient:#AA00AA:#BA55D3><bold>Reloaded.</bold></gradient>"
 setname-usage: "<gray>Usage: <light_purple>/tab setname [name]</light_purple></gray>"

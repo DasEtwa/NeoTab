@@ -9,7 +9,7 @@ author: muffinonboard aka DasEtwa
 commands:
   tab:
     description: NeoTab main command
-    usage: /tab <reload|setname|style|color|performance|gui|sb|timer|region|stopwatch|clock>
+    usage: /tab <reload|setname|style|color|performance|gui|sb|timer|region|stopwatch|clock|welcome|randommessages|biomepopup|nearestplayer|achievements>
     aliases: [neotab]
 
 permissions:
