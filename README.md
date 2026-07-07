@@ -14,7 +14,7 @@ Discord: https://discord.gg/pjM6ztnzMR
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 | `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
 | `1.2.0` | Stable | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
-| `1.3.0-Beta.3` | Beta | `1.20.6+` target | Bugfix beta: global ActionBar disable now stops all extras, scoreboard interop is safer, UTF-8/docs usage were cleaned up, and the build now compiles against Paper `1.20.6`. |
+| `1.3.0` | Stable | `1.20.6+` target | ActionBar Extras, Region Profiles, Random Messages management commands, safer scoreboard interop, global ActionBar disable fixes, and Paper `1.20.6` compile-target protection. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
@@ -63,7 +63,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.3.0-Beta.3.jar
+build/libs/NeoTab-1.3.0.jar
 ```
 
 ## PlaceholderAPI
@@ -240,7 +240,7 @@ Duration examples: `30s`, `5m`, `10m`, `1h`.
 
 The GUI includes fixed 5 minute and 10 minute starts plus a custom duration chat input. The running timer text is configurable and defaults to only showing `{time}`. When the countdown finishes, NeoTab shows `timer ends`.
 
-NeoTab `1.3.0-Beta.3` routes ActionBar output through a priority dispatcher so modules do not randomly overwrite each other. Timer and Stopwatch use priority `100`, Biome Popup uses `90`, Structure Popup is reserved at `85`, Welcome uses `70`, Nearest Player uses `50`, Achievements uses `40`, Clock uses `30`, and Random Messages use `10`.
+NeoTab `1.3.0` routes ActionBar output through a priority dispatcher so modules do not randomly overwrite each other. Timer and Stopwatch use priority `100`, Biome Popup uses `90`, Structure Popup is reserved at `85`, Welcome uses `70`, Nearest Player uses `50`, Achievements uses `40`, Clock uses `30`, and Random Messages use `10`.
 
 Random Messages can also be managed in-game:
 
@@ -255,7 +255,7 @@ Random Messages can also be managed in-game:
 
 The default config ships with an active English message list. A German list is included under an inactive message pack for a later language/profile workflow.
 
-Structure Popup is intentionally a config/GUI placeholder in this beta. Full structure detection is planned, but no heavy or unsafe structure lookup runs yet.
+Structure Popup is intentionally a config/GUI placeholder in this release. Full structure detection is planned, but no heavy or unsafe structure lookup runs yet.
 
 ## Region Profiles
 
@@ -292,4 +292,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.3.0-Beta.3`.
+- The current source version is `1.3.0`.
