@@ -205,8 +205,7 @@ public final class RegionCommand {
 
         Optional<RegionProfile> existingRegion = regionManager.region(name);
         if (existingRegion.isPresent()) {
-            RegionSelectionManager.RegionSelection selection = selectionFromExisting(existingRegion.get(), location, pos1);
-            regionManager.updateBounds(name, selection);
+            regionManager.updateBoundaryFromLocation(name, location, pos1);
         }
 
         sender.sendMessage(configManager.message(pos1 ? "region-pos1-set" : "region-pos2-set", Map.of(
@@ -310,29 +309,6 @@ public final class RegionCommand {
         }
         sender.sendMessage(configManager.message("region-imported", Map.of("name", name, "bounds", selection.get().format())));
         return true;
-    }
-
-    private RegionSelectionManager.RegionSelection selectionFromExisting(RegionProfile region, Location location, boolean pos1) {
-        if (pos1) {
-            return new RegionSelectionManager.RegionSelection(
-                location.getWorld().getName(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ(),
-                region.maxX(),
-                region.maxY(),
-                region.maxZ()
-            );
-        }
-        return new RegionSelectionManager.RegionSelection(
-            location.getWorld().getName(),
-            region.minX(),
-            region.minY(),
-            region.minZ(),
-            location.getBlockX(),
-            location.getBlockY(),
-            location.getBlockZ()
-        );
     }
 
     private Integer parseInteger(String input) {

@@ -2,7 +2,11 @@ package de.NeoTab.neotab;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.text.Component;
@@ -29,6 +33,7 @@ public final class TabUpdater {
     private final AtomicBoolean xmxWarned;
     private final AtomicBoolean luckPermsAdapterWarned;
     private final PlaceholderSupport placeholderSupport;
+    private final Map<UUID, TabState> tabStates;
 
     private RegionManager regionManager;
     private BukkitTask task;
@@ -46,6 +51,7 @@ public final class TabUpdater {
         xmxWarned = new AtomicBoolean(false);
         luckPermsAdapterWarned = new AtomicBoolean(false);
         placeholderSupport = new PlaceholderSupport(plugin);
+        tabStates = new HashMap<>();
         maxRamMbCache = -1L;
     }
 
@@ -71,7 +77,7 @@ public final class TabUpdater {
             public void run() {
                 updateAllNow();
             }
-        }.runTaskTimer(plugin, 0L, interval);
+        }.runTaskTimer(plugin, interval, interval);
     }
 
     public void stop() {
@@ -88,7 +94,11 @@ public final class TabUpdater {
     }
 
     public void handleQuit() {
-        updateNowOrSchedule();
+        updateAllNow();
+    }
+
+    public void handleDisconnect(UUID uuid) {
+        tabStates.remove(uuid);
     }
 
     public void updatePlayerNow(Player player) {
@@ -99,7 +109,8 @@ public final class TabUpdater {
         int max = Math.max(1, Bukkit.getServer().getMaxPlayers());
         onlineCount.set(online);
         maxPlayers.set(max);
-        applySnapshot(player, buildSnapshot(tick.getAndIncrement(), online, max), computeAveragePing(), resolvePlayerAdapter(configManager.isLuckPermsPrefixEnabled() && plugin.ensureLuckPerms() != null));
+        applySnapshot(player, buildSnapshot(tick.getAndIncrement(), online, max), computeAveragePing(),
+            resolvePlayerAdapter(configManager.isLuckPermsPrefixEnabled() && plugin.ensureLuckPerms() != null), new HashMap<>());
     }
 
     public void updateAllNow() {
@@ -129,9 +140,20 @@ public final class TabUpdater {
 
     public void clearAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.playerListName(Component.text(player.getName()));
-            player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
+            TabState state = tabStates.get(player.getUniqueId());
+            if (state == null) {
+                continue;
+            }
+            if (state.nameOwned && Objects.equals(player.playerListName(), state.lastAppliedName)) {
+                player.playerListName(state.previousName);
+            }
+            if (state.headerFooterOwned
+                && Objects.equals(player.playerListHeader(), state.lastAppliedHeader)
+                && Objects.equals(player.playerListFooter(), state.lastAppliedFooter)) {
+                player.sendPlayerListHeaderAndFooter(state.previousHeader, state.previousFooter);
+            }
         }
+        tabStates.clear();
     }
 
     private TabSnapshot buildSnapshot(int tickValue, int online, int max) {
@@ -153,28 +175,79 @@ public final class TabUpdater {
         int avgPing = avgPingCache.get();
         boolean useLuckPerms = configManager.isLuckPermsPrefixEnabled() && plugin.ensureLuckPerms() != null;
         PlayerAdapter<Player> playerAdapter = resolvePlayerAdapter(useLuckPerms);
+        Map<String, Component> sharedFooters = new HashMap<>();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            applySnapshot(player, snapshot, avgPing, playerAdapter);
+            applySnapshot(player, snapshot, avgPing, playerAdapter, sharedFooters);
         }
     }
 
-    private void applySnapshot(Player player, TabSnapshot snapshot, int avgPing, PlayerAdapter<Player> playerAdapter) {
+    private void applySnapshot(Player player, TabSnapshot snapshot, int avgPing, PlayerAdapter<Player> playerAdapter, Map<String, Component> sharedFooters) {
         ConfigManager.TabProfile tabProfile = activeTabProfile(player);
         Component headerComponent = buildHeader(player, snapshot, tabProfile);
 
         int playerPing = Math.max(0, player.getPing());
-        String footerMiniMessage = buildFooterMiniMessageBase(tabProfile, snapshot.stats(), onlineCount.get(), maxPlayers.get())
-            .replace("{playerPing}", AnimationUtils.colorizePingMiniMessage(playerPing))
-            .replace("{player_ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
-            .replace("{ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
-            .replace("{avgPing}", AnimationUtils.colorizePingMiniMessage(avgPing))
-            .replace("{avg_ping}", AnimationUtils.colorizePingMiniMessage(avgPing));
-        footerMiniMessage = applyPlaceholders(player, footerMiniMessage);
+        Component footerComponent;
+        if (canShareFooter(tabProfile.footerFormat())) {
+            footerComponent = sharedFooters.computeIfAbsent(tabProfile.name(), ignored -> configManager.deserialize(
+                buildFooterMiniMessageBase(tabProfile, snapshot.stats(), onlineCount.get(), maxPlayers.get()),
+                "tab-profiles." + tabProfile.name() + ".ram-format"
+            ));
+        } else {
+            String footerMiniMessage = buildFooterMiniMessageBase(tabProfile, snapshot.stats(), onlineCount.get(), maxPlayers.get())
+                .replace("{playerPing}", AnimationUtils.colorizePingMiniMessage(playerPing))
+                .replace("{player_ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
+                .replace("{ping}", AnimationUtils.colorizePingMiniMessage(playerPing))
+                .replace("{avgPing}", AnimationUtils.colorizePingMiniMessage(avgPing))
+                .replace("{avg_ping}", AnimationUtils.colorizePingMiniMessage(avgPing));
+            footerMiniMessage = applyPlaceholders(player, footerMiniMessage);
+            footerComponent = configManager.deserialize(footerMiniMessage, "ram-format");
+        }
+        applyIfChanged(player, buildPlayerListName(player, playerAdapter), headerComponent, footerComponent);
+    }
 
-        Component footerComponent = configManager.deserialize(footerMiniMessage, "ram-format");
-        player.playerListName(buildPlayerListName(player, playerAdapter));
-        player.sendPlayerListHeaderAndFooter(headerComponent, footerComponent);
+    private boolean canShareFooter(String footerFormat) {
+        if (footerFormat == null || footerFormat.indexOf('%') >= 0) {
+            return false;
+        }
+        return !footerFormat.contains("{playerPing}")
+            && !footerFormat.contains("{player_ping}")
+            && !footerFormat.contains("{ping}")
+            && !footerFormat.contains("{avgPing}")
+            && !footerFormat.contains("{avg_ping}");
+    }
+
+    private void applyIfChanged(Player player, Component playerListName, Component header, Component footer) {
+        TabState state = tabStates.computeIfAbsent(player.getUniqueId(), ignored -> new TabState(
+            player.playerListName(),
+            player.playerListHeader(),
+            player.playerListFooter()
+        ));
+
+        if (state.lastAppliedName != null && !Objects.equals(player.playerListName(), state.lastAppliedName)) {
+            state.nameOwned = false;
+        }
+        if (state.lastAppliedHeader != null && state.lastAppliedFooter != null
+            && (!Objects.equals(player.playerListHeader(), state.lastAppliedHeader)
+                || !Objects.equals(player.playerListFooter(), state.lastAppliedFooter))) {
+            state.headerFooterOwned = false;
+        }
+
+        if (state.nameOwned && !Objects.equals(player.playerListName(), playerListName)) {
+            player.playerListName(playerListName);
+        }
+        if (state.nameOwned) {
+            state.lastAppliedName = playerListName;
+        }
+
+        if (state.headerFooterOwned
+            && (!Objects.equals(player.playerListHeader(), header) || !Objects.equals(player.playerListFooter(), footer))) {
+            player.sendPlayerListHeaderAndFooter(header, footer);
+        }
+        if (state.headerFooterOwned) {
+            state.lastAppliedHeader = header;
+            state.lastAppliedFooter = footer;
+        }
     }
 
     private String applyPlaceholders(Player player, String input) {
@@ -367,5 +440,22 @@ public final class TabUpdater {
     }
 
     public record RamStats(long usedMb, long totalMb, int percent) {
+    }
+
+    private static final class TabState {
+        private final Component previousName;
+        private final Component previousHeader;
+        private final Component previousFooter;
+        private boolean nameOwned = true;
+        private boolean headerFooterOwned = true;
+        private Component lastAppliedName;
+        private Component lastAppliedHeader;
+        private Component lastAppliedFooter;
+
+        private TabState(Component previousName, Component previousHeader, Component previousFooter) {
+            this.previousName = previousName;
+            this.previousHeader = previousHeader == null ? Component.empty() : previousHeader;
+            this.previousFooter = previousFooter == null ? Component.empty() : previousFooter;
+        }
     }
 }

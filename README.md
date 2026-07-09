@@ -16,6 +16,7 @@ Discord: https://discord.gg/pjM6ztnzMR
 | `1.2.0` | Stable | `1.20.6+` target, tested with Paper `26.1.2` | Expands the GUI with direct color controls, scoreboard line presets, deletable scoreboard presets, separate tab/scoreboard intervals, animated scoreboard titles, and configurable ActionBar Timer text. |
 | `1.3.0` | Stable | `1.20.6+` target | ActionBar Extras, Region Profiles, Random Messages management commands, safer scoreboard interop, global ActionBar disable fixes, and Paper `1.20.6` compile-target protection. |
 | `1.3.1` | Stable patch | `1.20.6+` target | Fixes a delayed scoreboard join race, makes equal-priority ActionBar selection deterministic, and hides unauthorized ActionBar tab completions. |
+| `1.3.2` | Stable patch | `1.20.6+` target | Hardens lifecycle and permission checks, improves tab/scoreboard coexistence, spatially indexes expensive lookups, modernizes Paper APIs, and moves YAML disk writes off the server thread. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
@@ -26,6 +27,7 @@ Version docs:
 - [NeoTab 1.2.0](docs/1.2.0.md)
 - [NeoTab 1.3.0](docs/1.3.0.md)
 - [NeoTab 1.3.1](docs/1.3.1.md)
+- [NeoTab 1.3.2](docs/1.3.2.md)
 
 ## Features
 
@@ -65,7 +67,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.3.1.jar
+build/libs/NeoTab-1.3.2.jar
 ```
 
 ## PlaceholderAPI
@@ -294,4 +296,4 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.3.1`.
+- The current source version is `1.3.2`.

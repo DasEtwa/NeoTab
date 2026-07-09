@@ -75,7 +75,8 @@ public final class UpdateChecker {
 
     public void notifyPlayer(Player player) {
         CheckResult result = latestResult;
-        if (result == null || !result.updateAvailable() || !configManager.getUpdateCheckerConfig().notifyAdmins()) {
+        ConfigManager.UpdateCheckerConfig config = configManager.getUpdateCheckerConfig();
+        if (!config.enabled() || result == null || !result.updateAvailable() || !config.notifyAdmins()) {
             return;
         }
         if (!player.hasPermission(NOTIFY_PERMISSION)) {
@@ -151,6 +152,7 @@ public final class UpdateChecker {
             }
 
             if (result.failed()) {
+                latestResult = null;
                 plugin.getLogger().warning(result.message());
                 return;
             }

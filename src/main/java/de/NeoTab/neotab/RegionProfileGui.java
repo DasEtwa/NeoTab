@@ -52,7 +52,7 @@ public final class RegionProfileGui implements Listener {
         int maxPage = Math.max(0, (regions.size() - 1) / PAGE_SIZE);
         int resolvedPage = Math.max(0, Math.min(page, maxPage));
         GuiHolder holder = new GuiHolder(MenuType.LIST, null, resolvedPage);
-        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - Regions");
+        Inventory inventory = Bukkit.createInventory(holder, 54, Component.text("NeoTab - Regions"));
         holder.setInventory(inventory);
 
         int start = resolvedPage * PAGE_SIZE;
@@ -89,7 +89,7 @@ public final class RegionProfileGui implements Listener {
 
         RegionProfile region = optionalRegion.get();
         GuiHolder holder = new GuiHolder(MenuType.EDIT, region.name(), 0);
-        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - " + region.name());
+        Inventory inventory = Bukkit.createInventory(holder, 54, Component.text("NeoTab - " + region.name()));
         holder.setInventory(inventory);
 
         inventory.setItem(4, regionItem(region));
@@ -110,7 +110,7 @@ public final class RegionProfileGui implements Listener {
 
     private void openDeleteConfirm(Player player, String regionName) {
         GuiHolder holder = new GuiHolder(MenuType.DELETE_CONFIRM, regionName, 0);
-        Inventory inventory = Bukkit.createInventory(holder, 27, "Delete " + regionName + "?");
+        Inventory inventory = Bukkit.createInventory(holder, 27, Component.text("Delete " + regionName + "?"));
         holder.setInventory(inventory);
         inventory.setItem(11, item(Material.LIME_DYE, "Confirm Delete", "Permanently delete region " + regionName + "."));
         inventory.setItem(15, item(Material.BARRIER, "Cancel", "Keep this region."));
@@ -127,6 +127,10 @@ public final class RegionProfileGui implements Listener {
 
         event.setCancelled(true);
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (!requirePermission(player)) {
+            player.closeInventory();
             return;
         }
         if (event.getRawSlot() < 0 || event.getRawSlot() >= topInventory.getSize()) {
@@ -231,6 +235,9 @@ public final class RegionProfileGui implements Listener {
         }
 
         chatInputManager.request(player, configManager.message("input-region-name-start"), (inputPlayer, input) -> {
+            if (!requirePermission(inputPlayer)) {
+                return;
+            }
             String name = regionManager.normalizeName(input);
             if (!validateNewRegionName(inputPlayer, name)) {
                 return;
@@ -256,6 +263,9 @@ public final class RegionProfileGui implements Listener {
         }
 
         chatInputManager.request(player, configManager.message("input-region-name-start"), (inputPlayer, input) -> {
+            if (!requirePermission(inputPlayer)) {
+                return;
+            }
             String name = regionManager.normalizeName(input);
             if (!regionManager.isValidRegionName(name)) {
                 inputPlayer.sendMessage(configManager.message("region-invalid-name"));
@@ -320,6 +330,9 @@ public final class RegionProfileGui implements Listener {
 
     private void requestTabProfile(Player player, String regionName) {
         chatInputManager.request(player, configManager.message("input-region-tab-profile-start"), (inputPlayer, input) -> {
+            if (!requirePermission(inputPlayer)) {
+                return;
+            }
             String tabProfile = regionManager.normalizeProfileName(input);
             boolean exists = configManager.hasTabProfile(tabProfile);
             if (!regionManager.updateTabProfile(regionName, tabProfile)) {
@@ -333,6 +346,9 @@ public final class RegionProfileGui implements Listener {
 
     private void requestScoreboardProfile(Player player, String regionName) {
         chatInputManager.request(player, configManager.message("input-region-scoreboard-profile-start"), (inputPlayer, input) -> {
+            if (!requirePermission(inputPlayer)) {
+                return;
+            }
             String scoreboardProfile = regionManager.normalizeProfileName(input);
             boolean exists = configManager.hasScoreboardProfile(scoreboardProfile);
             if (!regionManager.updateScoreboardProfile(regionName, scoreboardProfile)) {
@@ -367,6 +383,14 @@ public final class RegionProfileGui implements Listener {
             return false;
         }
         return true;
+    }
+
+    private boolean requirePermission(Player player) {
+        if (player.hasPermission("neotab.region")) {
+            return true;
+        }
+        player.sendMessage(configManager.message("no-permission"));
+        return false;
     }
 
     private List<RegionProfile> sortedRegions() {

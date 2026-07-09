@@ -39,7 +39,7 @@ public final class StopwatchService implements ActionBarModule, Listener {
     @Override
     public void start() {
         formatter.refresh();
-        if (!configManager.getActionBarConfig().stopwatch().enabled()) {
+        if (!configManager.getActionBarConfig().enabled() || !configManager.getActionBarConfig().stopwatch().enabled()) {
             stopAll();
             return;
         }
@@ -54,7 +54,7 @@ public final class StopwatchService implements ActionBarModule, Listener {
     }
 
     public boolean start(Player player) {
-        if (!configManager.getActionBarConfig().stopwatch().enabled()) {
+        if (!configManager.getActionBarConfig().enabled() || !configManager.getActionBarConfig().stopwatch().enabled()) {
             return false;
         }
         if (timerService != null && timerService.isRunning(player)) {
@@ -150,7 +150,7 @@ public final class StopwatchService implements ActionBarModule, Listener {
     }
 
     private void tick() {
-        if (!configManager.getActionBarConfig().stopwatch().enabled()) {
+        if (!configManager.getActionBarConfig().enabled() || !configManager.getActionBarConfig().stopwatch().enabled()) {
             stopAll();
             return;
         }

@@ -1,5 +1,8 @@
 package de.NeoTab.neotab;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -57,28 +60,42 @@ public final class NearestPlayerModule implements ActionBarModule {
         }
 
         double maxDistanceSquared = (double) config.maxDistance() * (double) config.maxDistance();
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        double cellSize = Math.max(1.0, config.maxDistance());
+        List<Player> onlinePlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
+        Map<CellKey, List<Player>> spatialIndex = new HashMap<>();
+        for (Player player : onlinePlayers) {
+            spatialIndex.computeIfAbsent(cellKey(player.getLocation(), cellSize, config.sameWorldOnly()), ignored -> new ArrayList<>()).add(player);
+        }
+
+        for (Player player : onlinePlayers) {
             Location playerLocation = player.getLocation();
             Player nearest = null;
             double nearestDistanceSquared = Double.MAX_VALUE;
-            for (Player candidate : Bukkit.getOnlinePlayers()) {
-                if (candidate.equals(player)) {
-                    continue;
+            CellKey origin = cellKey(playerLocation, cellSize, config.sameWorldOnly());
+            for (int offsetX = -1; offsetX <= 1; offsetX++) {
+                for (int offsetY = -1; offsetY <= 1; offsetY++) {
+                    for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                        CellKey neighbor = new CellKey(origin.world(), origin.x() + offsetX, origin.y() + offsetY, origin.z() + offsetZ);
+                        for (Player candidate : spatialIndex.getOrDefault(neighbor, List.of())) {
+                            if (candidate.equals(player)) {
+                                continue;
+                            }
+                            Location candidateLocation = candidate.getLocation();
+                            boolean sameWorld = candidate.getWorld().equals(player.getWorld());
+                            if (config.sameWorldOnly() && !sameWorld) {
+                                continue;
+                            }
+                            double distanceSquared = sameWorld
+                                ? playerLocation.distanceSquared(candidateLocation)
+                                : distanceSquared(playerLocation, candidateLocation);
+                            if (distanceSquared > maxDistanceSquared || distanceSquared >= nearestDistanceSquared) {
+                                continue;
+                            }
+                            nearest = candidate;
+                            nearestDistanceSquared = distanceSquared;
+                        }
+                    }
                 }
-                Location candidateLocation = candidate.getLocation();
-                boolean sameWorld = candidate.getWorld().equals(player.getWorld());
-                if (config.sameWorldOnly() && !sameWorld) {
-                    continue;
-                }
-
-                double distanceSquared = sameWorld
-                    ? playerLocation.distanceSquared(candidateLocation)
-                    : distanceSquared(playerLocation, candidateLocation);
-                if (distanceSquared > maxDistanceSquared || distanceSquared >= nearestDistanceSquared) {
-                    continue;
-                }
-                nearest = candidate;
-                nearestDistanceSquared = distanceSquared;
             }
 
             if (nearest == null) {
@@ -115,5 +132,18 @@ public final class NearestPlayerModule implements ActionBarModule {
         double dy = left.getY() - right.getY();
         double dz = left.getZ() - right.getZ();
         return dx * dx + dy * dy + dz * dz;
+    }
+
+    private CellKey cellKey(Location location, double cellSize, boolean sameWorldOnly) {
+        String world = sameWorldOnly && location.getWorld() != null ? location.getWorld().getName() : "*";
+        return new CellKey(
+            world,
+            (int) Math.floor(location.getX() / cellSize),
+            (int) Math.floor(location.getY() / cellSize),
+            (int) Math.floor(location.getZ() / cellSize)
+        );
+    }
+
+    private record CellKey(String world, int x, int y, int z) {
     }
 }

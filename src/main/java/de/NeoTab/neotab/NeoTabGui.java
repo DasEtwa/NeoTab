@@ -146,14 +146,24 @@ public final class NeoTabGui implements Listener {
     private void handleTabClick(Player player, int slot) {
         switch (slot) {
             case 11 -> {
+                if (!requirePermission(player, "neotab.setname")) {
+                    return;
+                }
                 player.closeInventory();
                 chatInputManager.request(player, configManager.message("input-name-start"), (inputPlayer, input) -> {
-                configManager.setServerName(input);
-                tabUpdater.updateAllNow();
-                inputPlayer.sendMessage(configManager.message("name-changed"));
+                    if (!requirePermission(inputPlayer, "neotab.setname")) {
+                        return;
+                    }
+                    configManager.setServerName(input);
+                    tabUpdater.updateAllNow();
+                    inputPlayer.sendMessage(configManager.message("name-changed"));
                 });
             }
-            case 13 -> openStyle(player);
+            case 13 -> {
+                if (requirePermission(player, "neotab.style")) {
+                    openStyle(player);
+                }
+            }
             case 15 -> openColors(player);
             case 22 -> openMain(player, false);
             default -> {
@@ -203,6 +213,9 @@ public final class NeoTabGui implements Listener {
         if (slot == 15) {
             player.closeInventory();
             chatInputManager.request(player, configManager.message("input-color-start"), (inputPlayer, input) -> {
+                if (!requirePermission(inputPlayer, "neotab.color")) {
+                    return;
+                }
                 List<String> colors = HeaderColorPalette.parseCustomColors(input);
                 if (colors == null) {
                     inputPlayer.sendMessage(configManager.message("color-invalid"));
@@ -248,6 +261,9 @@ public final class NeoTabGui implements Listener {
             return;
         }
         if (index < 0 || index >= AnimationUtils.Style.values().length) {
+            return;
+        }
+        if (!requirePermission(player, "neotab.style")) {
             return;
         }
 
@@ -329,6 +345,9 @@ public final class NeoTabGui implements Listener {
         if (slot == 4) {
             player.closeInventory();
             chatInputManager.request(player, configManager.message("input-scoreboard-preset-start"), (inputPlayer, input) -> {
+                if (!requirePermission(inputPlayer, "neotab.scoreboard.presets")) {
+                    return;
+                }
                 String presetName = configManager.normalizePerformancePresetName(input);
                 if (!configManager.isValidPerformancePresetName(presetName)) {
                     inputPlayer.sendMessage(configManager.message("performance-invalid-name"));
@@ -470,6 +489,9 @@ public final class NeoTabGui implements Listener {
         if (slot == 15) {
             player.closeInventory();
             chatInputManager.request(player, configManager.message("input-scoreboard-line-start", Map.of("line", Integer.toString(lineNumber))), (inputPlayer, input) -> {
+                if (!requirePermission(inputPlayer, "neotab.scoreboard.edit")) {
+                    return;
+                }
                 scoreboardService.setLine(lineNumber, input);
                 inputPlayer.sendMessage(configManager.message("scoreboard-line-changed", Map.of("line", Integer.toString(lineNumber))));
                 openScoreboardLines(inputPlayer);
@@ -696,12 +718,15 @@ public final class NeoTabGui implements Listener {
             case 11 -> {
                 player.closeInventory();
                 chatInputManager.request(player, configManager.message("input-timer-duration-start"), (inputPlayer, input) -> {
-                int durationSeconds = ActionBarTimerService.parseDurationSeconds(input);
-                if (durationSeconds < 1) {
-                    inputPlayer.sendMessage(configManager.message("timer-invalid-duration"));
-                    return;
-                }
-                startTimer(inputPlayer, durationSeconds);
+                    if (!requirePermission(inputPlayer, "neotab.timer")) {
+                        return;
+                    }
+                    int durationSeconds = ActionBarTimerService.parseDurationSeconds(input);
+                    if (durationSeconds < 1) {
+                        inputPlayer.sendMessage(configManager.message("timer-invalid-duration"));
+                        return;
+                    }
+                    startTimer(inputPlayer, durationSeconds);
                 });
             }
             case 12 -> {
@@ -719,6 +744,9 @@ public final class NeoTabGui implements Listener {
             case 15 -> {
                 player.closeInventory();
                 chatInputManager.request(player, configManager.message("input-timer-text-start"), (inputPlayer, input) -> {
+                    if (!requirePermission(inputPlayer, "neotab.timer")) {
+                        return;
+                    }
                     configManager.setActionBarTimerRunningFormat(input);
                     inputPlayer.sendMessage(configManager.message("timer-text-changed"));
                     openTimer(inputPlayer);
@@ -831,6 +859,14 @@ public final class NeoTabGui implements Listener {
         openActionBar(player);
     }
 
+    private boolean requirePermission(Player player, String permission) {
+        if (player.hasPermission(permission)) {
+            return true;
+        }
+        player.sendMessage(configManager.message("no-permission"));
+        return false;
+    }
+
     private String tabIntervalLore(String preset) {
         Integer ticks = configManager.getPerformancePresetTicks(preset);
         String suffix = preset.equals(configManager.getActivePerformancePreset()) ? " Current preset." : "";
@@ -885,7 +921,7 @@ public final class NeoTabGui implements Listener {
         GuiHolder holder = new GuiHolder(menuType);
         holder.setLineNumber(lineNumber);
         holder.setPresetName(presetName);
-        Inventory inventory = Bukkit.createInventory(holder, 27, title);
+        Inventory inventory = Bukkit.createInventory(holder, 27, Component.text(title));
         holder.setInventory(inventory);
         return inventory;
     }

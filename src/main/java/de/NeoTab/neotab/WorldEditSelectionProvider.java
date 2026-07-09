@@ -31,6 +31,11 @@ public final class WorldEditSelectionProvider {
         return available;
     }
 
+    public void refresh() {
+        availabilityChecked = false;
+        available = false;
+    }
+
     public Optional<RegionSelectionManager.RegionSelection> selection(Player player) {
         if (player == null || !isAvailable()) {
             return Optional.empty();

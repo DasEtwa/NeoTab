@@ -45,10 +45,12 @@ public final class ConfigManager {
     private final MiniMessage miniMessage;
     private final LegacyComponentSerializer legacySerializer;
     private final AtomicReference<ConfigSnapshot> snapshot;
+    private final AsyncYamlWriter yamlWriter;
     private volatile YamlConfiguration messages;
 
-    public ConfigManager(NeoTab plugin) {
+    public ConfigManager(NeoTab plugin, AsyncYamlWriter yamlWriter) {
         this.plugin = plugin;
+        this.yamlWriter = yamlWriter;
         miniMessage = MiniMessage.miniMessage();
         legacySerializer = LegacyComponentSerializer.legacySection();
         snapshot = new AtomicReference<>();
@@ -56,7 +58,13 @@ public final class ConfigManager {
     }
 
     public void reload() {
+        yamlWriter.flush();
         plugin.reloadConfig();
+        rebuildSnapshot();
+        loadMessages();
+    }
+
+    private void rebuildSnapshot() {
         FileConfiguration config = plugin.getConfig();
 
         String serverName = config.getString("server-name", "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>");
@@ -128,7 +136,12 @@ public final class ConfigManager {
             scoreboardConfig,
             actionBarConfig
         ));
-        loadMessages();
+    }
+
+    private void persistAndRefresh() {
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        yamlWriter.write(configFile.toPath(), plugin.getConfig().saveToString());
+        rebuildSnapshot();
     }
 
     public ConfigSnapshot snapshot() {
@@ -137,20 +150,17 @@ public final class ConfigManager {
 
     public void setServerName(String serverName) {
         plugin.getConfig().set("server-name", serverName);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setAnimationStyle(AnimationUtils.Style style) {
         plugin.getConfig().set("animation-style", style.id());
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setCustomColors(List<String> colors) {
         plugin.getConfig().set("custom-colors", colors);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setPerformancePreset(String presetName, int intervalTicks) {
@@ -159,8 +169,7 @@ public final class ConfigManager {
         FileConfiguration config = plugin.getConfig();
         config.set("performance.active-preset", normalizedPreset);
         config.set("update-interval-ticks", clampedTicks);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void saveCurrentPerformancePreset(String presetName) {
@@ -170,40 +179,34 @@ public final class ConfigManager {
         config.set("performance.saved-presets." + normalizedPreset, intervalTicks);
         config.set("performance.active-preset", normalizedPreset);
         config.set("update-interval-ticks", intervalTicks);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardEnabled(boolean enabled) {
         plugin.getConfig().set("scoreboard.enabled", enabled);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardTitle(String title) {
         plugin.getConfig().set("scoreboard.title", title);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardUpdateIntervalTicks(int intervalTicks) {
         plugin.getConfig().set("scoreboard.update-interval-ticks", clampPerformanceTicks(intervalTicks));
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardTitleStyle(AnimationUtils.Style style) {
         FileConfiguration config = plugin.getConfig();
         config.set("scoreboard.title-animation.enabled", true);
         config.set("scoreboard.title-animation.style", style.id());
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardTitleAnimationEnabled(boolean enabled) {
         plugin.getConfig().set("scoreboard.title-animation.enabled", enabled);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setScoreboardLine(int lineNumber, String text) {
@@ -217,8 +220,7 @@ public final class ConfigManager {
         }
         lines.set(lineNumber - 1, text);
         plugin.getConfig().set("scoreboard.lines", lines);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void clearScoreboardLine(int lineNumber) {
@@ -233,14 +235,12 @@ public final class ConfigManager {
         lines.set(lineNumber - 1, "");
         trimTrailingBlankLines(lines);
         plugin.getConfig().set("scoreboard.lines", lines);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void clearAllScoreboardLines() {
         plugin.getConfig().set("scoreboard.lines", List.of());
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void saveScoreboardPreset(String presetName) {
@@ -252,8 +252,7 @@ public final class ConfigManager {
         FileConfiguration config = plugin.getConfig();
         config.set("scoreboard.presets." + normalizedPreset + ".title", getScoreboardConfig().title());
         config.set("scoreboard.presets." + normalizedPreset + ".lines", getScoreboardConfig().lines());
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public boolean loadScoreboardPreset(String presetName) {
@@ -266,8 +265,7 @@ public final class ConfigManager {
         FileConfiguration config = plugin.getConfig();
         config.set("scoreboard.title", preset.title());
         config.set("scoreboard.lines", preset.lines());
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
         return true;
     }
 
@@ -295,15 +293,15 @@ public final class ConfigManager {
         }
 
         config.set("scoreboard.presets." + configuredKey, null);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
         return true;
     }
 
     public void setActionBarTimerRunningFormat(String format) {
-        plugin.getConfig().set("extras.actionbar.timer.running-format", format);
-        plugin.saveConfig();
-        reload();
+        FileConfiguration config = plugin.getConfig();
+        String path = hasNewTimerConfig(config) ? "extras.actionbar.timer" : "extras.actionbar-timer";
+        config.set(path + ".running-format", format);
+        persistAndRefresh();
     }
 
     public void setActionBarModuleEnabled(String moduleName, boolean enabled) {
@@ -323,8 +321,7 @@ public final class ConfigManager {
             return;
         }
         plugin.getConfig().set(path, enabled);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public List<String> getRandomActionBarMessages() {
@@ -354,20 +351,17 @@ public final class ConfigManager {
 
     public void setRandomActionBarMessages(List<String> messages) {
         plugin.getConfig().set("extras.actionbar.random-messages.messages", messages == null ? List.of() : List.copyOf(messages));
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setClockTimezone(String timezone) {
         plugin.getConfig().set("extras.actionbar.clock.timezone", timezone);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public void setClockFormat(String format) {
         plugin.getConfig().set("extras.actionbar.clock.format", format);
-        plugin.saveConfig();
-        reload();
+        persistAndRefresh();
     }
 
     public Integer getPerformancePresetTicks(String presetName) {
@@ -552,7 +546,7 @@ public final class ConfigManager {
             YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultsStream, StandardCharsets.UTF_8));
             messages.setDefaults(defaults);
             messages.options().copyDefaults(true);
-            messages.save(messagesFile);
+            yamlWriter.write(messagesFile.toPath(), messages.saveToString());
         } catch (IOException ex) {
             plugin.getLogger().warning("Could not update messages.yml defaults: " + ex.getMessage());
         }
