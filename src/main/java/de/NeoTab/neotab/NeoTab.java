@@ -3,6 +3,7 @@ package de.NeoTab.neotab;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.LuckPerms;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -38,11 +39,13 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private NeoTabGui neoTabGui;
     private LuckPerms luckPerms;
     private boolean luckPermsWarned;
+    private AsyncYamlWriter yamlWriter;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        configManager = new ConfigManager(this);
+        yamlWriter = new AsyncYamlWriter(getLogger());
+        configManager = new ConfigManager(this, yamlWriter);
         hookLuckPerms();
 
         tabUpdater = new TabUpdater(this, configManager);
@@ -53,7 +56,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         scoreboardService = new ScoreboardService(this, configManager);
         regionSelectionManager = new RegionSelectionManager();
         worldEditSelectionProvider = new WorldEditSelectionProvider(this);
-        regionManager = new RegionManager(this, configManager, regionSelectionManager, worldEditSelectionProvider);
+        regionManager = new RegionManager(this, configManager, regionSelectionManager, worldEditSelectionProvider, yamlWriter);
         tabUpdater.setRegionManager(regionManager);
         scoreboardService.setRegionManager(regionManager);
         regionWandListener = new RegionWandListener(this, configManager, regionSelectionManager);
@@ -85,6 +88,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(stopwatchService, this);
         getServer().getPluginManager().registerEvents(welcomeActionBarModule, this);
         getServer().getPluginManager().registerEvents(biomePopupModule, this);
+        getServer().getPluginManager().registerEvents(advancementCounterModule, this);
         getServer().getPluginManager().registerEvents(neoTabGui, this);
         tabUpdater.initializeCounts(getServer().getOnlinePlayers().size(), getServer().getMaxPlayers());
         tabUpdater.start();
@@ -122,6 +126,9 @@ public final class NeoTab extends JavaPlugin implements Listener {
         }
         if (updateChecker != null) {
             updateChecker.stop();
+        }
+        if (yamlWriter != null) {
+            yamlWriter.close();
         }
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab disabled.</bold></gradient>");
     }
@@ -202,20 +209,33 @@ public final class NeoTab extends JavaPlugin implements Listener {
             tabUpdater.handleJoin();
         }
         if (updateChecker != null) {
-            getServer().getScheduler().runTaskLater(this, () -> updateChecker.notifyPlayer(event.getPlayer()), 20L);
+            java.util.UUID uuid = event.getPlayer().getUniqueId();
+            getServer().getScheduler().runTaskLater(this, () -> {
+                Player player = getServer().getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    updateChecker.notifyPlayer(player);
+                }
+            }, 20L);
         }
         if (scoreboardService != null) {
             scoreboardService.handleJoin(event.getPlayer());
         }
         if (regionManager != null) {
-            getServer().getScheduler().runTaskLater(this, () -> regionManager.handleMove(event.getPlayer()), 5L);
+            java.util.UUID uuid = event.getPlayer().getUniqueId();
+            getServer().getScheduler().runTaskLater(this, () -> {
+                Player player = getServer().getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    regionManager.handleMove(player);
+                }
+            }, 5L);
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (tabUpdater != null) {
-            tabUpdater.handleQuit();
+            tabUpdater.handleDisconnect(event.getPlayer().getUniqueId());
+            getServer().getScheduler().runTask(this, tabUpdater::handleQuit);
         }
         if (regionManager != null) {
             regionManager.handleQuit(event.getPlayer());

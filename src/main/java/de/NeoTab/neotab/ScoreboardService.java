@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,27 +17,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Criteria;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 public final class ScoreboardService implements Listener {
     private static final String[] UNIQUE_ENTRIES = {
-        ChatColor.BLACK.toString(),
-        ChatColor.DARK_BLUE.toString(),
-        ChatColor.DARK_GREEN.toString(),
-        ChatColor.DARK_AQUA.toString(),
-        ChatColor.DARK_RED.toString(),
-        ChatColor.DARK_PURPLE.toString(),
-        ChatColor.GOLD.toString(),
-        ChatColor.GRAY.toString(),
-        ChatColor.DARK_GRAY.toString(),
-        ChatColor.BLUE.toString(),
-        ChatColor.GREEN.toString(),
-        ChatColor.AQUA.toString(),
-        ChatColor.RED.toString(),
-        ChatColor.LIGHT_PURPLE.toString(),
-        ChatColor.YELLOW.toString()
+        "§0", "§1", "§2", "§3", "§4", "§5", "§6", "§7",
+        "§8", "§9", "§a", "§b", "§c", "§d", "§e"
     };
 
     private final NeoTab plugin;
@@ -46,6 +34,8 @@ public final class ScoreboardService implements Listener {
     private final Map<UUID, BoardSession> sessions;
     private final Set<UUID> enabledPlayers;
     private final Set<UUID> disabledPlayers;
+    private final Set<UUID> externalScoreboardOwners;
+    private final LegacyComponentSerializer legacySerializer;
 
     private RegionManager regionManager;
     private BukkitTask task;
@@ -58,6 +48,8 @@ public final class ScoreboardService implements Listener {
         sessions = new HashMap<>();
         enabledPlayers = new HashSet<>();
         disabledPlayers = new HashSet<>();
+        externalScoreboardOwners = new HashSet<>();
+        legacySerializer = LegacyComponentSerializer.legacySection();
     }
 
     public void setRegionManager(RegionManager regionManager) {
@@ -88,6 +80,7 @@ public final class ScoreboardService implements Listener {
         sessions.clear();
         enabledPlayers.clear();
         disabledPlayers.clear();
+        externalScoreboardOwners.clear();
     }
 
     private void startTaskIfNeeded() {
@@ -123,6 +116,7 @@ public final class ScoreboardService implements Listener {
     public void setEnabled(Player player, boolean enabled) {
         UUID uuid = player.getUniqueId();
         if (enabled) {
+            externalScoreboardOwners.remove(uuid);
             enabledPlayers.add(uuid);
             disabledPlayers.remove(uuid);
             startTaskIfNeeded();
@@ -140,6 +134,7 @@ public final class ScoreboardService implements Listener {
         configManager.setScoreboardEnabled(enabled);
         enabledPlayers.clear();
         disabledPlayers.clear();
+        externalScoreboardOwners.clear();
         if (enabled) {
             startTaskIfNeeded();
             updateAll();
@@ -213,6 +208,9 @@ public final class ScoreboardService implements Listener {
 
     public boolean isEnabled(Player player) {
         UUID uuid = player.getUniqueId();
+        if (externalScoreboardOwners.contains(uuid)) {
+            return false;
+        }
         if (enabledPlayers.contains(uuid)) {
             return true;
         }
@@ -252,6 +250,7 @@ public final class ScoreboardService implements Listener {
     }
 
     public void handleJoin(Player player) {
+        externalScoreboardOwners.remove(player.getUniqueId());
         if (isEnabled(player)) {
             startTaskIfNeeded();
             UUID uuid = player.getUniqueId();
@@ -271,6 +270,7 @@ public final class ScoreboardService implements Listener {
         sessions.remove(uuid);
         enabledPlayers.remove(uuid);
         disabledPlayers.remove(uuid);
+        externalScoreboardOwners.remove(uuid);
         stopTaskIfIdle();
     }
 
@@ -284,12 +284,32 @@ public final class ScoreboardService implements Listener {
     }
 
     private void update(Player player, ScoreboardRenderContext renderContext, int titleTick) {
-        BoardSession session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> createSession(player.getScoreboard()));
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        UUID uuid = player.getUniqueId();
+        BoardSession session = sessions.get(uuid);
+        if (session != null && player.getScoreboard() != session.scoreboard()) {
+            sessions.remove(uuid);
+            externalScoreboardOwners.add(uuid);
+            plugin.getLogger().fine("Yielding scoreboard control for " + player.getName() + " to another plugin.");
+            return;
+        }
+        if (session == null) {
+            Scoreboard previous = player.getScoreboard();
+            if (!previous.getObjectives().isEmpty() || !previous.getTeams().isEmpty()) {
+                externalScoreboardOwners.add(uuid);
+                plugin.getLogger().fine("Skipping NeoTab scoreboard for " + player.getName() + " because their current scoreboard is managed externally.");
+                return;
+            }
+            session = createSession(previous);
+            sessions.put(uuid, session);
+        }
         ConfigManager.ScoreboardProfile scoreboardProfile = activeScoreboardProfile(player);
 
         String renderedTitle = renderTitle(player, scoreboardProfile, renderContext, titleTick);
         if (!renderedTitle.equals(session.title())) {
-            session.objective().setDisplayName(renderedTitle);
+            session.objective().displayName(legacySerializer.deserialize(renderedTitle));
             session.setTitle(renderedTitle);
         }
 
@@ -306,12 +326,12 @@ public final class ScoreboardService implements Listener {
                     session.setVisible(index, true);
                 }
                 if (!renderedLine.equals(session.line(index))) {
-                    team.setPrefix(renderedLine);
+                    team.prefix(legacySerializer.deserialize(renderedLine));
                     session.setLine(index, renderedLine);
                 }
             } else {
                 if (session.isVisible(index)) {
-                    team.setPrefix("");
+                    team.prefix(Component.empty());
                     session.scoreboard().resetScores(entry);
                     session.setLine(index, "");
                     session.setVisible(index, false);
@@ -326,7 +346,7 @@ public final class ScoreboardService implements Listener {
 
     private BoardSession createSession(Scoreboard previousScoreboard) {
         Scoreboard scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
-        Objective objective = scoreboard.registerNewObjective("neotab", "dummy", "NeoTab");
+        Objective objective = scoreboard.registerNewObjective("neotab", Criteria.DUMMY, Component.text("NeoTab"));
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
 
         HashMap<Integer, Team> teams = new HashMap<>();
@@ -432,29 +452,11 @@ public final class ScoreboardService implements Listener {
     }
 
     private String trimScoreboardText(String text) {
-        if (text == null) {
-            return "";
-        }
-        return trimLegacyText(text, 128);
+        return text == null ? "" : text;
     }
 
     private String trimTeamText(String text) {
-        return trimLegacyText(text, 64);
-    }
-
-    private String trimLegacyText(String text, int maxLength) {
-        if (text == null) {
-            return "";
-        }
-        if (text.length() <= maxLength) {
-            return text;
-        }
-
-        int end = maxLength;
-        if (end > 0 && text.charAt(end - 1) == ChatColor.COLOR_CHAR) {
-            end--;
-        }
-        return text.substring(0, end);
+        return text == null ? "" : text;
     }
 
     private void stopTaskIfIdle() {

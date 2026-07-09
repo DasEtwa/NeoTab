@@ -62,6 +62,10 @@ permissions:
   neotab.scoreboard:
     description: Allows using NeoTab scoreboard commands and GUI controls
     default: op
+    children:
+      neotab.scoreboard.toggle: true
+      neotab.scoreboard.edit: true
+      neotab.scoreboard.presets: true
   neotab.scoreboard.toggle:
     description: Allows toggling the NeoTab scoreboard
     default: op
@@ -83,9 +87,21 @@ permissions:
   neotab.extras:
     description: Allows using NeoTab Extras
     default: op
+    children:
+      neotab.extras.actionbar: true
   neotab.extras.actionbar:
     description: Allows using NeoTab ActionBar extras
     default: op
+    children:
+      neotab.timer: true
+      neotab.extras.clock: true
+      neotab.extras.welcome: true
+      neotab.extras.randommessages: true
+      neotab.extras.stopwatch: true
+      neotab.extras.biome: true
+      neotab.extras.achievements: true
+      neotab.extras.nearestplayer: true
+      neotab.extras.structure: true
   neotab.extras.clock:
     description: Allows toggling and configuring the ActionBar clock
     default: op

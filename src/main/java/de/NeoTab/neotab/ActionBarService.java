@@ -109,7 +109,6 @@ public final class ActionBarService implements Listener {
         if (playerMessages.isEmpty()) {
             messages.remove(uuid);
         }
-        lastSource.remove(uuid);
     }
 
     public void clearSource(String source) {

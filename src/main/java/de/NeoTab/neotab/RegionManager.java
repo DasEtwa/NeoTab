@@ -1,7 +1,6 @@
 package de.NeoTab.neotab;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -20,25 +19,36 @@ import org.bukkit.entity.Player;
 
 public final class RegionManager {
     private static final String DEFAULT_PROFILE = "default";
+    private static final long MAX_INDEXED_CHUNKS_PER_REGION = 4096L;
+    private static final Comparator<RegionProfile> REGION_ORDER = Comparator
+        .comparingInt(RegionProfile::priority)
+        .reversed()
+        .thenComparing(RegionProfile::name);
 
     private final NeoTab plugin;
     private final ConfigManager configManager;
     private final RegionSelectionManager selectionManager;
     private final WorldEditSelectionProvider worldEditSelectionProvider;
+    private final AsyncYamlWriter yamlWriter;
     private final Map<String, RegionProfile> regions;
-    private final Map<String, List<RegionProfile>> regionsByWorld;
+    private final Map<String, Map<Long, List<RegionProfile>>> regionsByChunk;
+    private final Map<String, List<RegionProfile>> largeRegionsByWorld;
+    private final Map<String, RegionEndpoints> regionEndpoints;
     private final Map<UUID, String> activeRegions;
     private final Map<String, Boolean> warnedTabProfiles;
     private final Map<String, Boolean> warnedScoreboardProfiles;
     private final File regionsFile;
 
-    public RegionManager(NeoTab plugin, ConfigManager configManager, RegionSelectionManager selectionManager, WorldEditSelectionProvider worldEditSelectionProvider) {
+    public RegionManager(NeoTab plugin, ConfigManager configManager, RegionSelectionManager selectionManager, WorldEditSelectionProvider worldEditSelectionProvider, AsyncYamlWriter yamlWriter) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.selectionManager = selectionManager;
         this.worldEditSelectionProvider = worldEditSelectionProvider;
+        this.yamlWriter = yamlWriter;
         regions = new LinkedHashMap<>();
-        regionsByWorld = new HashMap<>();
+        regionsByChunk = new HashMap<>();
+        largeRegionsByWorld = new HashMap<>();
+        regionEndpoints = new HashMap<>();
         activeRegions = new HashMap<>();
         warnedTabProfiles = new HashMap<>();
         warnedScoreboardProfiles = new HashMap<>();
@@ -47,11 +57,15 @@ public final class RegionManager {
     }
 
     public void reload() {
+        yamlWriter.flush();
         ensureRegionsFile();
         regions.clear();
-        regionsByWorld.clear();
+        regionsByChunk.clear();
+        largeRegionsByWorld.clear();
+        regionEndpoints.clear();
         warnedTabProfiles.clear();
         warnedScoreboardProfiles.clear();
+        worldEditSelectionProvider.refresh();
 
         YamlConfiguration config = YamlConfiguration.loadConfiguration(regionsFile);
         ConfigurationSection section = config.getConfigurationSection("regions");
@@ -89,6 +103,7 @@ public final class RegionManager {
                 normalizeProfileName(config.getString(path + ".scoreboard-profile", DEFAULT_PROFILE))
             );
             regions.put(name, region);
+            regionEndpoints.put(name, RegionEndpoints.from(region));
         }
 
         rebuildWorldIndex();
@@ -116,6 +131,7 @@ public final class RegionManager {
             DEFAULT_PROFILE
         );
         regions.put(normalizedName, region);
+        regionEndpoints.put(normalizedName, RegionEndpoints.from(region));
         save();
         rebuildWorldIndex();
         refreshAllPlayers();
@@ -127,6 +143,7 @@ public final class RegionManager {
         if (regions.remove(normalizedName) == null) {
             return false;
         }
+        regionEndpoints.remove(normalizedName);
         save();
         rebuildWorldIndex();
         refreshAllPlayers();
@@ -140,6 +157,7 @@ public final class RegionManager {
             return false;
         }
         regions.put(normalizedName, region.withBounds(selection));
+        regionEndpoints.put(normalizedName, RegionEndpoints.from(selection));
         save();
         rebuildWorldIndex();
         refreshAllPlayers();
@@ -161,29 +179,26 @@ public final class RegionManager {
             return false;
         }
 
-        RegionSelectionManager.RegionSelection selection;
-        if (pos1) {
-            selection = new RegionSelectionManager.RegionSelection(
-                location.getWorld().getName(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ(),
-                region.maxX(),
-                region.maxY(),
-                region.maxZ()
-            );
-        } else {
-            selection = new RegionSelectionManager.RegionSelection(
-                location.getWorld().getName(),
-                region.minX(),
-                region.minY(),
-                region.minZ(),
-                location.getBlockX(),
-                location.getBlockY(),
-                location.getBlockZ()
-            );
+        RegionEndpoints endpoints = regionEndpoints.computeIfAbsent(normalizedName, ignored -> RegionEndpoints.from(region));
+        RegionSelectionManager.SelectionPoint updated = new RegionSelectionManager.SelectionPoint(
+            location.getWorld().getName(),
+            location.getBlockX(),
+            location.getBlockY(),
+            location.getBlockZ()
+        );
+        RegionSelectionManager.SelectionPoint other = pos1 ? endpoints.pos2() : endpoints.pos1();
+        if (!updated.world().equalsIgnoreCase(other.world())) {
+            return false;
         }
-        return updateBounds(normalizedName, selection);
+
+        RegionEndpoints updatedEndpoints;
+        if (pos1) {
+            updatedEndpoints = new RegionEndpoints(updated, endpoints.pos2());
+        } else {
+            updatedEndpoints = new RegionEndpoints(endpoints.pos1(), updated);
+        }
+        regionEndpoints.put(normalizedName, updatedEndpoints);
+        return updateBoundsPreservingEndpoints(normalizedName, updatedEndpoints);
     }
 
     public boolean updateTabProfile(String name, String tabProfile) {
@@ -245,6 +260,9 @@ public final class RegionManager {
     }
 
     public void handleMove(Player player) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
         RegionProfile winningRegion = findWinningRegion(player.getLocation());
         String newRegionName = winningRegion == null ? "" : winningRegion.name();
         String previousRegionName = activeRegions.put(player.getUniqueId(), newRegionName);
@@ -295,11 +313,59 @@ public final class RegionManager {
         if (location == null || location.getWorld() == null) {
             return null;
         }
-        List<RegionProfile> worldRegions = regionsByWorld.get(location.getWorld().getName().toLowerCase(Locale.ROOT));
-        if (worldRegions == null || worldRegions.isEmpty()) {
-            return null;
+        String worldName = location.getWorld().getName().toLowerCase(Locale.ROOT);
+        long chunkKey = chunkKey(location.getBlockX() >> 4, location.getBlockZ() >> 4);
+        RegionProfile winner = firstContaining(
+            regionsByChunk.getOrDefault(worldName, Map.of()).getOrDefault(chunkKey, List.of()),
+            location
+        );
+        RegionProfile largeWinner = firstContaining(largeRegionsByWorld.getOrDefault(worldName, List.of()), location);
+        if (winner == null) {
+            return largeWinner;
         }
-        for (RegionProfile region : worldRegions) {
+        if (largeWinner == null) {
+            return winner;
+        }
+        return REGION_ORDER.compare(winner, largeWinner) <= 0 ? winner : largeWinner;
+    }
+
+    private void rebuildWorldIndex() {
+        regionsByChunk.clear();
+        largeRegionsByWorld.clear();
+        for (RegionProfile region : regions.values()) {
+            if (!region.enabled()) {
+                continue;
+            }
+            String worldName = region.world().toLowerCase(Locale.ROOT);
+            int minChunkX = region.minX() >> 4;
+            int maxChunkX = region.maxX() >> 4;
+            int minChunkZ = region.minZ() >> 4;
+            int maxChunkZ = region.maxZ() >> 4;
+            long width = (long) maxChunkX - minChunkX + 1L;
+            long depth = (long) maxChunkZ - minChunkZ + 1L;
+            if (width * depth > MAX_INDEXED_CHUNKS_PER_REGION) {
+                largeRegionsByWorld.computeIfAbsent(worldName, ignored -> new ArrayList<>()).add(region);
+                continue;
+            }
+            Map<Long, List<RegionProfile>> worldIndex = regionsByChunk.computeIfAbsent(worldName, ignored -> new HashMap<>());
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                    worldIndex.computeIfAbsent(chunkKey(chunkX, chunkZ), ignored -> new ArrayList<>()).add(region);
+                }
+            }
+        }
+        for (Map<Long, List<RegionProfile>> worldIndex : regionsByChunk.values()) {
+            for (List<RegionProfile> chunkRegions : worldIndex.values()) {
+                chunkRegions.sort(REGION_ORDER);
+            }
+        }
+        for (List<RegionProfile> worldRegions : largeRegionsByWorld.values()) {
+            worldRegions.sort(REGION_ORDER);
+        }
+    }
+
+    private RegionProfile firstContaining(List<RegionProfile> candidates, Location location) {
+        for (RegionProfile region : candidates) {
             if (region.contains(location)) {
                 return region;
             }
@@ -307,21 +373,20 @@ public final class RegionManager {
         return null;
     }
 
-    private void rebuildWorldIndex() {
-        regionsByWorld.clear();
-        for (RegionProfile region : regions.values()) {
-            if (!region.enabled()) {
-                continue;
-            }
-            regionsByWorld.computeIfAbsent(region.world().toLowerCase(Locale.ROOT), ignored -> new ArrayList<>()).add(region);
+    private long chunkKey(int chunkX, int chunkZ) {
+        return ((long) chunkX << 32) ^ (chunkZ & 0xffffffffL);
+    }
+
+    private boolean updateBoundsPreservingEndpoints(String normalizedName, RegionEndpoints endpoints) {
+        RegionProfile region = regions.get(normalizedName);
+        if (region == null) {
+            return false;
         }
-        Comparator<RegionProfile> comparator = Comparator
-            .comparingInt(RegionProfile::priority)
-            .reversed()
-            .thenComparing(RegionProfile::name);
-        for (List<RegionProfile> worldRegions : regionsByWorld.values()) {
-            worldRegions.sort(comparator);
-        }
+        regions.put(normalizedName, region.withBounds(endpoints.selection()));
+        save();
+        rebuildWorldIndex();
+        refreshAllPlayers();
+        return true;
     }
 
     private boolean updateRegion(String normalizedName, RegionUpdater updater) {
@@ -353,11 +418,7 @@ public final class RegionManager {
             config.set(path + ".scoreboard-profile", region.scoreboardProfile());
         }
 
-        try {
-            config.save(regionsFile);
-        } catch (IOException ex) {
-            plugin.getLogger().warning("Could not save regions.yml: " + ex.getMessage());
-        }
+        yamlWriter.write(regionsFile.toPath(), config.saveToString());
     }
 
     private void ensureRegionsFile() {
@@ -375,7 +436,7 @@ public final class RegionManager {
                 YamlConfiguration config = new YamlConfiguration();
                 config.set("regions", new LinkedHashMap<>());
                 config.save(regionsFile);
-            } catch (IOException ioException) {
+            } catch (java.io.IOException ioException) {
                 plugin.getLogger().warning("Could not create regions.yml: " + ioException.getMessage());
             }
         }
@@ -397,5 +458,36 @@ public final class RegionManager {
 
     private interface RegionUpdater {
         RegionProfile update(RegionProfile region);
+    }
+
+    private record RegionEndpoints(
+        RegionSelectionManager.SelectionPoint pos1,
+        RegionSelectionManager.SelectionPoint pos2
+    ) {
+        private static RegionEndpoints from(RegionProfile region) {
+            return new RegionEndpoints(
+                new RegionSelectionManager.SelectionPoint(region.world(), region.minX(), region.minY(), region.minZ()),
+                new RegionSelectionManager.SelectionPoint(region.world(), region.maxX(), region.maxY(), region.maxZ())
+            );
+        }
+
+        private static RegionEndpoints from(RegionSelectionManager.RegionSelection selection) {
+            return new RegionEndpoints(
+                new RegionSelectionManager.SelectionPoint(selection.world(), selection.minX(), selection.minY(), selection.minZ()),
+                new RegionSelectionManager.SelectionPoint(selection.world(), selection.maxX(), selection.maxY(), selection.maxZ())
+            );
+        }
+
+        private RegionSelectionManager.RegionSelection selection() {
+            return new RegionSelectionManager.RegionSelection(
+                pos1.world(),
+                Math.min(pos1.x(), pos2.x()),
+                Math.min(pos1.y(), pos2.y()),
+                Math.min(pos1.z(), pos2.z()),
+                Math.max(pos1.x(), pos2.x()),
+                Math.max(pos1.y(), pos2.y()),
+                Math.max(pos1.z(), pos2.z())
+            );
+        }
     }
 }

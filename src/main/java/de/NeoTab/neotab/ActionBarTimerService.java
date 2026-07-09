@@ -48,7 +48,8 @@ public final class ActionBarTimerService implements Listener {
     }
 
     public boolean start(Player player, int durationSeconds) {
-        if (!configManager.getActionBarTimerConfig().enabled() || durationSeconds <= 0 || durationSeconds > MAX_DURATION_SECONDS) {
+        if (!configManager.getActionBarConfig().enabled() || !configManager.getActionBarTimerConfig().enabled()
+            || durationSeconds <= 0 || durationSeconds > MAX_DURATION_SECONDS) {
             return false;
         }
 
@@ -160,6 +161,10 @@ public final class ActionBarTimerService implements Listener {
     }
 
     private void tick() {
+        if (!configManager.getActionBarConfig().enabled() || !configManager.getActionBarTimerConfig().enabled()) {
+            stopAll();
+            return;
+        }
         Iterator<Map.Entry<UUID, TimerSession>> iterator = sessions.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, TimerSession> entry = iterator.next();
