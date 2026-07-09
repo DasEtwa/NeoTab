@@ -254,7 +254,14 @@ public final class ScoreboardService implements Listener {
     public void handleJoin(Player player) {
         if (isEnabled(player)) {
             startTaskIfNeeded();
-            Bukkit.getScheduler().runTaskLater(plugin, () -> update(player, buildRenderContext(), animationTick), 5L);
+            UUID uuid = player.getUniqueId();
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                Player currentPlayer = Bukkit.getPlayer(uuid);
+                if (currentPlayer == null || !currentPlayer.isOnline()) {
+                    return;
+                }
+                update(currentPlayer, buildRenderContext(), animationTick);
+            }, 5L);
         }
     }
 

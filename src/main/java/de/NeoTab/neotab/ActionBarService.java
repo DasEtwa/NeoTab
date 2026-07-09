@@ -165,7 +165,9 @@ public final class ActionBarService implements Listener {
                 iterator.remove();
                 continue;
             }
-            if (winning == null || message.priority() > winning.priority()) {
+            if (winning == null
+                || message.priority() > winning.priority()
+                || (message.priority() == winning.priority() && message.source().compareTo(winning.source()) < 0)) {
                 winning = message;
             }
         }

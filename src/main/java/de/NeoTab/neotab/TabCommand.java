@@ -250,7 +250,10 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             completeSimple(completions, args, List.of("on", "off", "list", "add", "remove", "clear"));
         }
 
-        if (List.of("welcome", "biomepopup", "nearestplayer", "achievements").contains(args[0].toLowerCase(Locale.ROOT))) {
+        if (args[0].equalsIgnoreCase("welcome") && sender.hasPermission("neotab.extras.welcome")
+            || args[0].equalsIgnoreCase("biomepopup") && sender.hasPermission("neotab.extras.biome")
+            || args[0].equalsIgnoreCase("nearestplayer") && sender.hasPermission("neotab.extras.nearestplayer")
+            || args[0].equalsIgnoreCase("achievements") && sender.hasPermission("neotab.extras.achievements")) {
             completeSimple(completions, args, List.of("on", "off"));
         }
 
