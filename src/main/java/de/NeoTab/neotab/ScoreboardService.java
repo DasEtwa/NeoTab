@@ -126,6 +126,7 @@ public final class ScoreboardService implements Listener {
 
         enabledPlayers.remove(uuid);
         disabledPlayers.add(uuid);
+        externalScoreboardOwners.remove(uuid);
         clear(player);
         stopTaskIfIdle();
     }
@@ -208,9 +209,6 @@ public final class ScoreboardService implements Listener {
 
     public boolean isEnabled(Player player) {
         UUID uuid = player.getUniqueId();
-        if (externalScoreboardOwners.contains(uuid)) {
-            return false;
-        }
         if (enabledPlayers.contains(uuid)) {
             return true;
         }
@@ -289,21 +287,26 @@ public final class ScoreboardService implements Listener {
         }
         UUID uuid = player.getUniqueId();
         BoardSession session = sessions.get(uuid);
-        if (session != null && player.getScoreboard() != session.scoreboard()) {
-            sessions.remove(uuid);
-            externalScoreboardOwners.add(uuid);
-            plugin.getLogger().fine("Yielding scoreboard control for " + player.getName() + " to another plugin.");
+        Scoreboard currentScoreboard = player.getScoreboard();
+        ScoreboardClaimAction claimAction = claimAction(
+            session != null,
+            session != null && currentScoreboard == session.scoreboard(),
+            isAvailable(currentScoreboard)
+        );
+        if (claimAction == ScoreboardClaimAction.WAIT_FOR_EXTERNAL_OWNER) {
+            if (externalScoreboardOwners.add(uuid)) {
+                plugin.getLogger().fine("Skipping NeoTab scoreboard for " + player.getName() + " because their current scoreboard is managed externally.");
+            }
             return;
         }
-        if (session == null) {
-            Scoreboard previous = player.getScoreboard();
-            if (!previous.getObjectives().isEmpty() || !previous.getTeams().isEmpty()) {
-                externalScoreboardOwners.add(uuid);
-                plugin.getLogger().fine("Skipping NeoTab scoreboard for " + player.getName() + " because their current scoreboard is managed externally.");
-                return;
-            }
-            session = createSession(previous);
+
+        boolean resumed = externalScoreboardOwners.remove(uuid);
+        if (claimAction == ScoreboardClaimAction.CREATE_SESSION) {
+            session = createSession(currentScoreboard);
             sessions.put(uuid, session);
+        }
+        if (resumed) {
+            plugin.getLogger().fine("Resuming NeoTab scoreboard for " + player.getName() + " after external ownership ended.");
         }
         ConfigManager.ScoreboardProfile scoreboardProfile = activeScoreboardProfile(player);
 
@@ -360,7 +363,9 @@ public final class ScoreboardService implements Listener {
     }
 
     private void clear(Player player) {
-        BoardSession removed = sessions.remove(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        externalScoreboardOwners.remove(uuid);
+        BoardSession removed = sessions.remove(uuid);
         if (removed == null) {
             return;
         }
@@ -368,6 +373,26 @@ public final class ScoreboardService implements Listener {
         if (player.getScoreboard() == removed.scoreboard()) {
             player.setScoreboard(removed.previousScoreboard());
         }
+    }
+
+    private boolean isAvailable(Scoreboard scoreboard) {
+        return scoreboard.getObjectives().isEmpty() && scoreboard.getTeams().isEmpty();
+    }
+
+    static ScoreboardClaimAction claimAction(boolean hasSession, boolean currentIsSession, boolean currentIsAvailable) {
+        if (hasSession && currentIsSession) {
+            return ScoreboardClaimAction.REUSE_SESSION;
+        }
+        if (currentIsAvailable) {
+            return ScoreboardClaimAction.CREATE_SESSION;
+        }
+        return ScoreboardClaimAction.WAIT_FOR_EXTERNAL_OWNER;
+    }
+
+    enum ScoreboardClaimAction {
+        REUSE_SESSION,
+        CREATE_SESSION,
+        WAIT_FOR_EXTERNAL_OWNER
     }
 
     private ScoreboardRenderContext buildRenderContext() {
