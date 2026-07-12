@@ -28,9 +28,9 @@ final class CoreRegressionTest {
 
     @Test
     void versionComparisonKeepsStableAbovePrereleaseAndOrdersBetaNumbers() {
-        assertTrue(UpdateChecker.compareVersions("1.3.2", "1.3.2-Beta.9") > 0);
-        assertTrue(UpdateChecker.compareVersions("1.3.2-Beta.10", "1.3.2-Beta.2") > 0);
-        assertEquals(0, UpdateChecker.compareVersions("v1.3.2", "1.3.2"));
+        assertTrue(UpdateChecker.compareVersions("1.3.3", "1.3.3-Beta.9") > 0);
+        assertTrue(UpdateChecker.compareVersions("1.3.3-Beta.10", "1.3.3-Beta.2") > 0);
+        assertEquals(0, UpdateChecker.compareVersions("v1.3.3", "1.3.3"));
     }
 
     @Test
@@ -50,5 +50,25 @@ final class CoreRegressionTest {
         assertEquals(80, profile.maxY());
         assertEquals(-5, profile.minZ());
         assertEquals(30, profile.maxZ());
+    }
+
+    @Test
+    void scoreboardOwnershipIsReevaluatedAfterTemporaryTakeover() {
+        assertEquals(
+            ScoreboardService.ScoreboardClaimAction.WAIT_FOR_EXTERNAL_OWNER,
+            ScoreboardService.claimAction(true, false, false)
+        );
+        assertEquals(
+            ScoreboardService.ScoreboardClaimAction.REUSE_SESSION,
+            ScoreboardService.claimAction(true, true, false)
+        );
+        assertEquals(
+            ScoreboardService.ScoreboardClaimAction.CREATE_SESSION,
+            ScoreboardService.claimAction(true, false, true)
+        );
+        assertEquals(
+            ScoreboardService.ScoreboardClaimAction.CREATE_SESSION,
+            ScoreboardService.claimAction(false, false, true)
+        );
     }
 }
