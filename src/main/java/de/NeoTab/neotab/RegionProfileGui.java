@@ -4,10 +4,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -52,7 +50,7 @@ public final class RegionProfileGui implements Listener {
         int maxPage = Math.max(0, (regions.size() - 1) / PAGE_SIZE);
         int resolvedPage = Math.max(0, Math.min(page, maxPage));
         GuiHolder holder = new GuiHolder(MenuType.LIST, null, resolvedPage);
-        Inventory inventory = Bukkit.createInventory(holder, 54, Component.text("NeoTab - Regions"));
+        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - Regions");
         holder.setInventory(inventory);
 
         int start = resolvedPage * PAGE_SIZE;
@@ -89,7 +87,7 @@ public final class RegionProfileGui implements Listener {
 
         RegionProfile region = optionalRegion.get();
         GuiHolder holder = new GuiHolder(MenuType.EDIT, region.name(), 0);
-        Inventory inventory = Bukkit.createInventory(holder, 54, Component.text("NeoTab - " + region.name()));
+        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - " + region.name());
         holder.setInventory(inventory);
 
         inventory.setItem(4, regionItem(region));
@@ -110,7 +108,7 @@ public final class RegionProfileGui implements Listener {
 
     private void openDeleteConfirm(Player player, String regionName) {
         GuiHolder holder = new GuiHolder(MenuType.DELETE_CONFIRM, regionName, 0);
-        Inventory inventory = Bukkit.createInventory(holder, 27, Component.text("Delete " + regionName + "?"));
+        Inventory inventory = Bukkit.createInventory(holder, 27, "Delete " + regionName + "?");
         holder.setInventory(inventory);
         inventory.setItem(11, item(Material.LIME_DYE, "Confirm Delete", "Permanently delete region " + regionName + "."));
         inventory.setItem(15, item(Material.BARRIER, "Cancel", "Keep this region."));
@@ -242,8 +240,9 @@ public final class RegionProfileGui implements Listener {
             if (!validateNewRegionName(inputPlayer, name)) {
                 return;
             }
-            if (!regionManager.createRegion(name, selection.get())) {
-                inputPlayer.sendMessage(configManager.message("region-create-failed", Map.of("name", name)));
+            RegionManager.RegionMutationResult result = regionManager.createRegionChecked(name, selection.get());
+            if (!result.changed()) {
+                sendMutationFailure(inputPlayer, name, result, "region-create-failed");
                 return;
             }
             inputPlayer.sendMessage(configManager.message("region-created", Map.of("name", name, "bounds", selection.get().format())));
@@ -283,30 +282,34 @@ public final class RegionProfileGui implements Listener {
             return;
         }
 
-        selectionManager.setSelection(player.getUniqueId(), selection.get());
-        boolean changed = regionManager.hasRegion(regionName)
-            ? regionManager.updateBounds(regionName, selection.get())
-            : regionManager.createRegion(regionName, selection.get());
-        if (!changed) {
-            player.sendMessage(configManager.message("region-create-failed", Map.of("name", regionName)));
+        RegionManager.RegionMutationResult result = regionManager.hasRegion(regionName)
+            ? regionManager.updateBoundsChecked(regionName, selection.get())
+            : regionManager.createRegionChecked(regionName, selection.get());
+        if (!result.changed()) {
+            sendMutationFailure(player, regionName, result, "region-create-failed");
             return;
         }
+        selectionManager.setSelection(player.getUniqueId(), selection.get());
         player.sendMessage(configManager.message("region-imported", Map.of("name", regionName, "bounds", selection.get().format())));
         openEdit(player, regionName);
     }
 
     private void setBoundary(Player player, String regionName, boolean pos1) {
         Location location = player.getLocation();
+        RegionManager.RegionMutationResult result = regionManager.updateBoundaryFromLocationChecked(regionName, location, pos1);
+        if (!result.changed()) {
+            sendMutationFailure(player, regionName, result, "region-position-invalid");
+            if (result.failure() == RegionManager.MutationFailure.NOT_FOUND) {
+                openList(player);
+            } else {
+                openEdit(player, regionName);
+            }
+            return;
+        }
         if (pos1) {
             selectionManager.setPos1(player.getUniqueId(), location);
         } else {
             selectionManager.setPos2(player.getUniqueId(), location);
-        }
-
-        if (!regionManager.updateBoundaryFromLocation(regionName, location, pos1)) {
-            player.sendMessage(configManager.message("region-missing", Map.of("name", regionName)));
-            openList(player);
-            return;
         }
         player.sendMessage(configManager.message(pos1 ? "region-pos1-set" : "region-pos2-set", Map.of(
             "name", regionName,
@@ -368,9 +371,39 @@ public final class RegionProfileGui implements Listener {
             return;
         }
         boolean enabled = !optionalRegion.get().enabled();
-        regionManager.updateEnabled(regionName, enabled);
+        RegionManager.RegionMutationResult result = regionManager.updateEnabledChecked(regionName, enabled);
+        if (!result.changed()) {
+            sendMutationFailure(player, regionName, result, "region-create-failed");
+            openEdit(player, regionName);
+            return;
+        }
         player.sendMessage(configManager.message(enabled ? "region-enabled" : "region-disabled", Map.of("name", regionName)));
         openEdit(player, regionName);
+    }
+
+    private void sendMutationFailure(
+        Player player,
+        String regionName,
+        RegionManager.RegionMutationResult result,
+        String fallbackMessageKey
+    ) {
+        String messageKey = RegionCommand.mutationFailureMessageKey(result, fallbackMessageKey);
+        if (result.failure() == RegionManager.MutationFailure.WORLD_MISMATCH) {
+            player.sendMessage(configManager.message(messageKey, Map.of(
+                "name", regionName,
+                "expected", result.expectedWorld(),
+                "actual", result.actualWorld()
+            )));
+            return;
+        }
+        if (result.limitExceeded()) {
+            player.sendMessage(configManager.message(messageKey, Map.of(
+                "name", regionName,
+                "reason", result.detail()
+            )));
+            return;
+        }
+        player.sendMessage(configManager.message(messageKey, Map.of("name", regionName)));
     }
 
     private boolean validateNewRegionName(Player player, String name) {
@@ -415,10 +448,10 @@ public final class RegionProfileGui implements Listener {
     private ItemStack item(Material material, String name, String... lore) {
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(Component.text(name, NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
+        meta.setDisplayName(ChatColor.RESET.toString() + ChatColor.LIGHT_PURPLE + name);
         if (lore.length > 0) {
-            meta.lore(List.of(lore).stream()
-                .map(line -> Component.text(line, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false))
+            meta.setLore(List.of(lore).stream()
+                .map(line -> ChatColor.RESET.toString() + ChatColor.GRAY + line)
                 .toList());
         }
         itemStack.setItemMeta(meta);
@@ -442,7 +475,7 @@ public final class RegionProfileGui implements Listener {
         DELETE_CONFIRM
     }
 
-    private static final class GuiHolder implements InventoryHolder {
+    private static final class GuiHolder implements NeoTabInventoryHolder {
         private final MenuType menuType;
         private final String regionName;
         private final int page;

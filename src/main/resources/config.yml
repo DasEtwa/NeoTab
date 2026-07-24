@@ -1,4 +1,8 @@
 server-name: "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>"
+metrics:
+  # Anonymous usage statistics powered by bStats.
+  # bStats can also be disabled globally in plugins/bStats/config.yml.
+  enabled: true
 animation-style: "rainbow"  # rainbow, purple-pulse, gradient-wave, static
 header:
   bold-animation: false      # true restores the old bold animated header style

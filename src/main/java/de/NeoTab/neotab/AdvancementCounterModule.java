@@ -5,13 +5,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import io.papermc.paper.advancement.AdvancementDisplay;
+import java.util.function.Predicate;
 import org.bukkit.Bukkit;
 import org.bukkit.advancement.Advancement;
+import org.bukkit.advancement.AdvancementDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.ServerLoadEvent;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -24,7 +26,7 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
     private final ConfigManager configManager;
     private final ActionBarService actionBarService;
     private final ActionBarTextFormatter formatter;
-    private final Map<UUID, Integer> completedCounts;
+    private final CompletionCountCache completedCounts;
 
     private BukkitTask task;
     private List<Advancement> advancements = List.of();
@@ -34,7 +36,7 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
         this.configManager = configManager;
         this.actionBarService = actionBarService;
         this.formatter = formatter;
-        completedCounts = new HashMap<>();
+        completedCounts = new CompletionCountCache();
     }
 
     @Override
@@ -43,6 +45,8 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
         formatter.refresh();
         ConfigManager.AchievementsActionBarConfig config = configManager.getActionBarConfig().achievements();
         if (!config.enabled() || !"minecraft".equalsIgnoreCase(config.provider())) {
+            completedCounts.clear();
+            advancements = List.of();
             actionBarService.clearSource(SOURCE);
             return;
         }
@@ -75,7 +79,10 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
         int total = advancements.size();
         long durationMillis = Math.max(1L, config.durationSeconds()) * 1000L;
         for (Player player : Bukkit.getOnlinePlayers()) {
-            int completed = completedCounts.computeIfAbsent(player.getUniqueId(), ignored -> countCompleted(player));
+            // Bukkit exposes a completion event for grants but no matching revoke
+            // event. Reconcile against the authoritative progress on every display
+            // cycle so command/plugin revokes cannot leave the cache over-counted.
+            int completed = reconcileCompletedCount(player);
             actionBarService.submit(
                 player,
                 SOURCE,
@@ -106,10 +113,21 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
 
     @EventHandler
     public void onAdvancementDone(PlayerAdvancementDoneEvent event) {
-        if (!shouldCount(event.getAdvancement())) {
+        if (task == null || !shouldCount(event.getAdvancement())) {
             return;
         }
-        completedCounts.computeIfPresent(event.getPlayer().getUniqueId(), (ignored, count) -> count + 1);
+
+        UUID uuid = event.getPlayer().getUniqueId();
+        if (completedCounts.contains(uuid)) {
+            // Recount instead of incrementing: duplicate completion events and a
+            // revoke followed by a new grant must never push the count over truth.
+            reconcileCompletedCount(event.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        completedCounts.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -124,14 +142,48 @@ public final class AdvancementCounterModule implements ActionBarModule, Listener
         }
     }
 
-    private int countCompleted(Player player) {
+    private int reconcileCompletedCount(Player player) {
+        return completedCounts.reconcile(
+            player.getUniqueId(),
+            advancements,
+            advancement -> player.getAdvancementProgress(advancement).isDone()
+        );
+    }
+
+    static <T> int countCompleted(Iterable<T> values, Predicate<T> completedPredicate) {
         int completed = 0;
-        for (Advancement advancement : advancements) {
-            if (player.getAdvancementProgress(advancement).isDone()) {
+        for (T value : values) {
+            if (completedPredicate.test(value)) {
                 completed++;
             }
         }
         return completed;
+    }
+
+    static final class CompletionCountCache {
+        private final Map<UUID, Integer> values = new HashMap<>();
+
+        <T> int reconcile(UUID uuid, Iterable<T> candidates, Predicate<T> completedPredicate) {
+            int completed = countCompleted(candidates, completedPredicate);
+            values.put(uuid, completed);
+            return completed;
+        }
+
+        boolean contains(UUID uuid) {
+            return values.containsKey(uuid);
+        }
+
+        Integer get(UUID uuid) {
+            return values.get(uuid);
+        }
+
+        void remove(UUID uuid) {
+            values.remove(uuid);
+        }
+
+        void clear() {
+            values.clear();
+        }
     }
 
     private void refreshAdvancements() {

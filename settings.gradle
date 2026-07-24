@@ -9,8 +9,8 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         maven {
-            name = "papermc"
-            url = uri("https://repo.papermc.io/repository/maven-public/")
+            name = "spigotmc"
+            url = uri("https://hub.spigotmc.org/nexus/repository/snapshots/")
         }
         maven {
             name = "placeholderapi"

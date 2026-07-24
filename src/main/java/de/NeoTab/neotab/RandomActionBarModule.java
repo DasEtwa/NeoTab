@@ -66,7 +66,7 @@ public final class RandomActionBarModule implements ActionBarModule {
             actionBarService.submit(
                 player,
                 SOURCE,
-                formatter.render(player, text, Map.of("player", player.getName(), "player_name", player.getName()), "actionbar.random"),
+                formatter.renderPaletteFallback(player, text, Map.of("player", player.getName(), "player_name", player.getName()), "actionbar.random"),
                 ActionBarService.PRIORITY_RANDOM,
                 durationMillis
             );

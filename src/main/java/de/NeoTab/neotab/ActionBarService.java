@@ -25,19 +25,24 @@ public final class ActionBarService implements Listener {
     public static final int PRIORITY_RANDOM = 10;
 
     private static final long SEND_INTERVAL_TICKS = 20L;
+    // The dispatcher runs once per second; 1.5s makes unchanged long-lived
+    // messages refresh every other pass without risking the client fade window.
+    private static final long KEEP_ALIVE_INTERVAL_MILLIS = 1_500L;
 
     private final NeoTab plugin;
     private final ConfigManager configManager;
+    private final PlatformBridge platformBridge;
     private final Map<UUID, Map<String, ActionBarMessage>> messages;
-    private final Map<UUID, String> lastSource;
+    private final Map<UUID, DeliveredMessage> deliveredMessages;
 
     private BukkitTask task;
 
     public ActionBarService(NeoTab plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        platformBridge = new PlatformBridge(plugin, configManager);
         messages = new HashMap<>();
-        lastSource = new HashMap<>();
+        deliveredMessages = new HashMap<>();
     }
 
     public void start() {
@@ -119,14 +124,14 @@ public final class ActionBarService implements Listener {
     }
 
     public void clearAll() {
-        for (UUID uuid : lastSource.keySet()) {
+        for (UUID uuid : deliveredMessages.keySet()) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null && player.isOnline()) {
-                player.sendActionBar(Component.empty());
+                platformBridge.sendActionBar(player, Component.empty());
             }
         }
         messages.clear();
-        lastSource.clear();
+        deliveredMessages.clear();
     }
 
     private void dispatchAll() {
@@ -138,15 +143,31 @@ public final class ActionBarService implements Listener {
     private void dispatch(Player player) {
         UUID uuid = player.getUniqueId();
         ActionBarMessage message = winningMessage(uuid);
+        DeliveredMessage delivered = deliveredMessages.get(uuid);
         if (message == null) {
-            if (lastSource.remove(uuid) != null) {
-                player.sendActionBar(Component.empty());
+            if (deliveredMessages.remove(uuid) != null) {
+                platformBridge.sendActionBar(player, Component.empty());
             }
             return;
         }
 
-        lastSource.put(uuid, message.source());
-        player.sendActionBar(message.text());
+        long now = System.currentTimeMillis();
+        if (!shouldSend(delivered, message, now, KEEP_ALIVE_INTERVAL_MILLIS)) {
+            return;
+        }
+
+        deliveredMessages.put(uuid, new DeliveredMessage(message.source(), message.text(), now));
+        platformBridge.sendActionBar(player, message.text());
+    }
+
+    static boolean shouldSend(DeliveredMessage delivered, ActionBarMessage message, long nowMillis, long keepAliveMillis) {
+        if (delivered == null) {
+            return true;
+        }
+        if (!delivered.source().equals(message.source()) || !delivered.text().equals(message.text())) {
+            return true;
+        }
+        return nowMillis - delivered.sentAtMillis() >= Math.max(1L, keepAliveMillis);
     }
 
     private ActionBarMessage winningMessage(UUID uuid) {
@@ -188,6 +209,9 @@ public final class ActionBarService implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID uuid = event.getPlayer().getUniqueId();
         messages.remove(uuid);
-        lastSource.remove(uuid);
+        deliveredMessages.remove(uuid);
+    }
+
+    record DeliveredMessage(String source, Component text, long sentAtMillis) {
     }
 }

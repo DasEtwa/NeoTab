@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -26,6 +29,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
     private final ActionBarTimerService actionBarTimerService;
     private final NeoTabGui neoTabGui;
     private final RegionCommand regionCommand;
+    private final AtomicBoolean reloadInProgress;
     private static final Set<String> RESERVED_PERFORMANCE_NAMES = Set.of("custom", "save");
 
     public TabCommand(
@@ -48,6 +52,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         this.actionBarTimerService = actionBarTimerService;
         this.neoTabGui = neoTabGui;
         this.regionCommand = regionCommand;
+        reloadInProgress = new AtomicBoolean(false);
     }
 
     @Override
@@ -58,6 +63,10 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
 
         String subcommand = args[0].toLowerCase(Locale.ROOT);
+        if (!commandAllowedDuringReload(reloadInProgress.get(), subcommand)) {
+            sender.sendMessage("[NeoTab] A reload is in progress; configuration commands are temporarily unavailable.");
+            return true;
+        }
         switch (subcommand) {
             case "reload" -> {
                 if (!sender.hasPermission("neotab.reload")) {
@@ -65,15 +74,15 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
 
-                configManager.reload();
-                tabUpdater.restart();
-                tabUpdater.updateAllNow();
-                updateChecker.start();
+                if (!beginReload(reloadInProgress)) {
+                    sender.sendMessage("[NeoTab] A reload is already in progress.");
+                    return true;
+                }
+                // Close every mutation surface before capturing the writer barrier. All NeoTab
+                // commands remain gated until finishReload resets reloadInProgress.
+                plugin.closePluginInventories();
                 chatInputManager.cancelAll(true);
-                plugin.getRegionManager().reload();
-                scoreboardService.restart();
-                plugin.restartActionBarExtras();
-                sender.sendMessage(configManager.message("reload-success"));
+                configManager.flushWritesAsync().whenComplete((ignored, failure) -> scheduleReloadCompletion(sender, failure));
                 return true;
             }
             case "setname" -> {
@@ -231,7 +240,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args[0].equalsIgnoreCase("timer") && sender.hasPermission("neotab.timer")) {
-            completeTimer(completions, args);
+            completeTimer(sender, completions, args);
         }
 
         if ((args[0].equalsIgnoreCase("region") || args[0].equalsIgnoreCase("regions")) && sender.hasPermission("neotab.region")) {
@@ -518,6 +527,13 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
         String action = args[1].toLowerCase(Locale.ROOT);
         if (action.equals("text")) {
+            if (!canEditTimerText(
+                sender.hasPermission("neotab.timer"),
+                sender.hasPermission("neotab.timer.admin")
+            )) {
+                sender.sendMessage(configManager.message("no-permission"));
+                return true;
+            }
             if (args.length < 3) {
                 sender.sendMessage(configManager.message("timer-text-usage"));
                 return true;
@@ -1009,10 +1025,14 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void completeTimer(List<String> completions, String[] args) {
+    private void completeTimer(CommandSender sender, List<String> completions, String[] args) {
         if (args.length == 2) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
-            for (String option : List.of("start", "stop", "pause", "resume", "text")) {
+            ArrayList<String> options = new ArrayList<>(List.of("start", "stop", "pause", "resume"));
+            if (sender.hasPermission("neotab.timer.admin")) {
+                options.add("text");
+            }
+            for (String option : options) {
                 if (option.startsWith(prefix)) {
                     completions.add(option);
                 }
@@ -1048,5 +1068,51 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             builder.append(args[i]);
         }
         return builder.toString();
+    }
+
+    static boolean beginReload(AtomicBoolean reloadInProgress) {
+        return reloadInProgress.compareAndSet(false, true);
+    }
+
+    static boolean commandAllowedDuringReload(boolean reloadInProgress, String subcommand) {
+        return !reloadInProgress || "reload".equalsIgnoreCase(subcommand);
+    }
+
+    static boolean canEditTimerText(boolean timerPermission, boolean timerAdminPermission) {
+        return timerPermission && timerAdminPermission;
+    }
+
+    private void scheduleReloadCompletion(CommandSender sender, Throwable failure) {
+        try {
+            Bukkit.getScheduler().runTask(plugin, () -> finishReload(sender, failure));
+        } catch (RuntimeException schedulingFailure) {
+            reloadInProgress.set(false);
+            plugin.getLogger().log(Level.SEVERE, "Could not schedule the NeoTab reload completion task.", schedulingFailure);
+        }
+    }
+
+    private void finishReload(CommandSender sender, Throwable flushFailure) {
+        try {
+            if (flushFailure != null) {
+                plugin.getLogger().log(Level.SEVERE, "NeoTab reload aborted because pending configuration writes could not be flushed.", flushFailure);
+                sender.sendMessage("[NeoTab] Reload failed because pending configuration writes could not be flushed. See console.");
+                return;
+            }
+
+            configManager.reload();
+            tabUpdater.restart();
+            tabUpdater.updateAllNow();
+            updateChecker.start();
+            plugin.getRegionManager().reload();
+            scoreboardService.restart();
+            scoreboardService.warnIfAggressiveInterval();
+            plugin.restartActionBarExtras();
+            sender.sendMessage(configManager.message("reload-success"));
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.SEVERE, "NeoTab reload failed.", ex);
+            sender.sendMessage("[NeoTab] Reload failed. See console for details.");
+        } finally {
+            reloadInProgress.set(false);
+        }
     }
 }

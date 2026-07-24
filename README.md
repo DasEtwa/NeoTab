@@ -1,6 +1,6 @@
 # NeoTab
 
-NeoTab is a lightweight Paper tablist plugin for Minecraft `1.20.6+` that adds an animated tablist header and a live footer with RAM and ping stats.
+NeoTab is a lightweight Paper, Spigot, and CraftBukkit tablist plugin for Minecraft `1.20.6+` that adds an animated tablist header and a live footer with RAM and ping stats.
 
 Modrinth: https://modrinth.com/plugin/neotab/versions
 
@@ -18,6 +18,7 @@ Discord: https://discord.gg/pjM6ztnzMR
 | `1.3.1` | Stable patch | `1.20.6+` target | Fixes a delayed scoreboard join race, makes equal-priority ActionBar selection deterministic, and hides unauthorized ActionBar tab completions. |
 | `1.3.2` | Stable patch | `1.20.6+` target | Hardens lifecycle and permission checks, improves tab/scoreboard coexistence, spatially indexes expensive lookups, modernizes Paper APIs, and moves YAML disk writes off the server thread. |
 | `1.3.3` | Stable patch | `1.20.6+` target | Re-evaluates temporary external scoreboard ownership during normal ticks so NeoTab resumes automatically after another sidebar plugin releases control. |
+| `1.4.0-Beta.1` | Beta | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, cross-platform animation fixes, and extensive runtime/performance hardening. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
@@ -30,6 +31,7 @@ Version docs:
 - [NeoTab 1.3.1](docs/1.3.1.md)
 - [NeoTab 1.3.2](docs/1.3.2.md)
 - [NeoTab 1.3.3](docs/1.3.3.md)
+- [NeoTab 1.4.0-Beta.1](docs/1.4.0.md)
 
 ## Features
 
@@ -50,12 +52,12 @@ Version docs:
 - ActionBar Stopwatch, Clock, Welcome message, Random Messages, Biome Popup, Achievements, and Nearest Player modules
 - Region Profiles for automatic tab and scoreboard profile switching inside configured cuboid regions
 - Shared active color palette for tab, scoreboard, chat messages, and timer output
-- Paper `1.20.6` API compile target with Java 21 bytecode
+- Spigot `1.20.6` API compile target with Java 21 bytecode and a shared Paper/Spigot/CraftBukkit JAR
 
 ## Installation
 
 1. Download the JAR from Modrinth or GitHub Releases.
-2. Put the JAR into your Paper server's `plugins` folder.
+2. Put the JAR into your Paper, Spigot, or CraftBukkit server's `plugins` folder.
 3. Restart the server.
 4. Edit `plugins/NeoTab/config.yml`.
 5. Use `/tab reload` after config changes.
@@ -69,7 +71,28 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.3.3.jar
+build/libs/NeoTab-1.4.0-Beta.1.jar
+```
+
+## Anonymous Metrics
+
+NeoTab includes optional anonymous usage statistics powered by bStats under the registered NeoTab plugin ID `32846`. Metrics only start when `metrics.enabled` is `true`. bStats can also be disabled globally in `plugins/bStats/config.yml`.
+
+NeoTab-specific charts report only these normalized or boolean values:
+
+- configured language: `de`, `en`, or `other`
+- whether the scoreboard, header, footer, RAM display, player ping display, average ping display, AFK feature, and update checker are enabled
+- whether LuckPerms, PlaceholderAPI, and Geyser are installed
+- normalized server platform: Paper, Spigot, CraftBukkit, or other
+- the number of configured animated header/scoreboard slots grouped as `none`, `1-5`, `6-10`, or `11_plus`
+
+The normal server count, player count, Minecraft version, NeoTab version, Java version, operating system, and server software values are handled automatically by bStats and are not duplicated as custom charts.
+
+NeoTab does not collect player names or UUIDs, IP addresses, ports, chat messages, permissions or groups, tab/header/footer or scoreboard contents, server names, MOTDs, world names, file paths, config contents, secrets, tokens, or webhooks.
+
+```yaml
+metrics:
+  enabled: true
 ```
 
 ## PlaceholderAPI
@@ -298,4 +321,6 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.3.3`.
+- The current source version is `1.4.0-Beta.1`.
+- CraftBukkit ActionBar output uses a narrow runtime bridge because the Bukkit API has no public ActionBar method. NeoTab falls back to the vanilla `title` command if that bridge changes in a future Minecraft release.
+- Interactive MiniMessage click/hover events are not preserved at legacy Bukkit output boundaries; RGB colors, gradients, and normal text decorations are preserved.

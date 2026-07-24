@@ -64,10 +64,17 @@ public final class NearestPlayerModule implements ActionBarModule {
         List<Player> onlinePlayers = new ArrayList<>(Bukkit.getOnlinePlayers());
         Map<CellKey, List<Player>> spatialIndex = new HashMap<>();
         for (Player player : onlinePlayers) {
+            if (!player.isOnline() || !player.isValid()) {
+                continue;
+            }
             spatialIndex.computeIfAbsent(cellKey(player.getLocation(), cellSize, config.sameWorldOnly()), ignored -> new ArrayList<>()).add(player);
         }
 
         for (Player player : onlinePlayers) {
+            if (!player.isOnline() || !player.isValid()) {
+                actionBarService.clear(player, SOURCE);
+                continue;
+            }
             Location playerLocation = player.getLocation();
             Player nearest = null;
             double nearestDistanceSquared = Double.MAX_VALUE;
@@ -77,7 +84,7 @@ public final class NearestPlayerModule implements ActionBarModule {
                     for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
                         CellKey neighbor = new CellKey(origin.world(), origin.x() + offsetX, origin.y() + offsetY, origin.z() + offsetZ);
                         for (Player candidate : spatialIndex.getOrDefault(neighbor, List.of())) {
-                            if (candidate.equals(player)) {
+                            if (!isEligibleCandidate(player, candidate)) {
                                 continue;
                             }
                             Location candidateLocation = candidate.getLocation();
@@ -132,6 +139,16 @@ public final class NearestPlayerModule implements ActionBarModule {
         double dy = left.getY() - right.getY();
         double dz = left.getZ() - right.getZ();
         return dx * dx + dy * dy + dz * dz;
+    }
+
+    static boolean isEligibleCandidate(Player viewer, Player candidate) {
+        if (viewer == null || candidate == null || viewer == candidate) {
+            return false;
+        }
+        if (!candidate.isOnline() || !candidate.isValid()) {
+            return false;
+        }
+        return viewer.canSee(candidate);
     }
 
     private CellKey cellKey(Location location, double cellSize, boolean sameWorldOnly) {

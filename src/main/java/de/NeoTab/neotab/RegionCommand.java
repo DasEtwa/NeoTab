@@ -134,8 +134,9 @@ public final class RegionCommand {
             sender.sendMessage(configManager.message("region-selection-missing"));
             return true;
         }
-        if (!regionManager.createRegion(name, selection.get())) {
-            sender.sendMessage(configManager.message("region-create-failed", Map.of("name", name)));
+        RegionManager.RegionMutationResult result = regionManager.createRegionChecked(name, selection.get());
+        if (!result.changed()) {
+            sendMutationFailure(sender, name, result, "region-create-failed");
             return true;
         }
         sender.sendMessage(configManager.message("region-created", Map.of("name", name, "bounds", selection.get().format())));
@@ -197,17 +198,27 @@ public final class RegionCommand {
         }
         String name = regionManager.normalizeName(args[2]);
         Location location = player.getLocation();
+        Optional<RegionProfile> existingRegion = regionManager.region(name);
+        if (existingRegion.isEmpty()) {
+            sender.sendMessage(configManager.message("region-missing", Map.of("name", name)));
+            return true;
+        }
+        RegionManager.RegionMutationResult result = regionManager.updateBoundaryFromLocationChecked(name, location, pos1);
+        if (!result.changed()) {
+            sendMutationFailure(sender, name, result, "region-position-invalid");
+            return true;
+        }
+
         if (pos1) {
             selectionManager.setPos1(player.getUniqueId(), location);
         } else {
             selectionManager.setPos2(player.getUniqueId(), location);
         }
 
-        Optional<RegionProfile> existingRegion = regionManager.region(name);
-        if (existingRegion.isPresent()) {
-            regionManager.updateBoundaryFromLocation(name, location, pos1);
+        if (location.getWorld() == null) {
+            sender.sendMessage(configManager.message("region-position-invalid", Map.of("name", name)));
+            return true;
         }
-
         sender.sendMessage(configManager.message(pos1 ? "region-pos1-set" : "region-pos2-set", Map.of(
             "name", name,
             "position", location.getWorld().getName() + " " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ()
@@ -300,11 +311,11 @@ public final class RegionCommand {
             return true;
         }
         selectionManager.setSelection(player.getUniqueId(), selection.get());
-        boolean changed = regionManager.hasRegion(name)
-            ? regionManager.updateBounds(name, selection.get())
-            : regionManager.createRegion(name, selection.get());
-        if (!changed) {
-            sender.sendMessage(configManager.message("region-create-failed", Map.of("name", name)));
+        RegionManager.RegionMutationResult result = regionManager.hasRegion(name)
+            ? regionManager.updateBoundsChecked(name, selection.get())
+            : regionManager.createRegionChecked(name, selection.get());
+        if (!result.changed()) {
+            sendMutationFailure(sender, name, result, "region-create-failed");
             return true;
         }
         sender.sendMessage(configManager.message("region-imported", Map.of("name", name, "bounds", selection.get().format())));
@@ -317,6 +328,48 @@ public final class RegionCommand {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private void sendMutationFailure(
+        CommandSender sender,
+        String regionName,
+        RegionManager.RegionMutationResult result,
+        String fallbackMessageKey
+    ) {
+        String messageKey = mutationFailureMessageKey(result, fallbackMessageKey);
+        if (result.failure() == RegionManager.MutationFailure.WORLD_MISMATCH) {
+            sender.sendMessage(configManager.message(messageKey, Map.of(
+                "name", regionName,
+                "expected", result.expectedWorld(),
+                "actual", result.actualWorld()
+            )));
+            return;
+        }
+        if (result.limitExceeded()) {
+            sender.sendMessage(configManager.message(messageKey, Map.of(
+                "name", regionName,
+                "reason", result.detail()
+            )));
+            return;
+        }
+        if (result.failure() == RegionManager.MutationFailure.NOT_FOUND) {
+            sender.sendMessage(configManager.message(messageKey, Map.of("name", regionName)));
+            return;
+        }
+        sender.sendMessage(configManager.message(messageKey, Map.of("name", regionName)));
+    }
+
+    static String mutationFailureMessageKey(RegionManager.RegionMutationResult result, String fallbackMessageKey) {
+        if (result.failure() == RegionManager.MutationFailure.WORLD_MISMATCH) {
+            return "region-position-world-mismatch";
+        }
+        if (result.limitExceeded()) {
+            return "region-limit-exceeded";
+        }
+        if (result.failure() == RegionManager.MutationFailure.NOT_FOUND) {
+            return "region-missing";
+        }
+        return fallbackMessageKey;
     }
 
     private void addMatching(List<String> completions, String rawPrefix, Iterable<String> options) {

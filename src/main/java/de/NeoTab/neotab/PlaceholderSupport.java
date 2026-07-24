@@ -25,12 +25,39 @@ public final class PlaceholderSupport {
         }
     }
 
+    public boolean isAvailable() {
+        return available;
+    }
+
+    static boolean containsPlaceholderToken(String input) {
+        if (input == null) {
+            return false;
+        }
+        int opening = input.indexOf('%');
+        while (opening >= 0 && opening + 2 < input.length()) {
+            int closing = input.indexOf('%', opening + 1);
+            if (closing < 0) {
+                return false;
+            }
+            boolean valid = closing > opening + 1;
+            for (int index = opening + 1; valid && index < closing; index++) {
+                char character = input.charAt(index);
+                valid = !Character.isWhitespace(character) && character != '%';
+            }
+            if (valid) {
+                return true;
+            }
+            opening = input.indexOf('%', opening + 1);
+        }
+        return false;
+    }
+
     public String setPlaceholders(Player player, String input) {
         if (
             !available
                 || input == null
                 || input.isBlank()
-                || input.indexOf('%') < 0
+                || !containsPlaceholderToken(input)
                 || Bukkit.getOnlinePlayers().isEmpty()
         ) {
             return input;

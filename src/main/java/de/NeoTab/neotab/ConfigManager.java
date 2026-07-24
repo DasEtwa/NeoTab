@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -52,16 +53,24 @@ public final class ConfigManager {
         this.plugin = plugin;
         this.yamlWriter = yamlWriter;
         miniMessage = MiniMessage.miniMessage();
-        legacySerializer = LegacyComponentSerializer.legacySection();
+        legacySerializer = LegacyComponentSerializer.builder()
+            .character('§')
+            .hexColors()
+            .useUnusualXRepeatedCharacterHexFormat()
+            .build();
         snapshot = new AtomicReference<>();
         reload();
     }
 
     public void reload() {
-        yamlWriter.flush();
         plugin.reloadConfig();
         rebuildSnapshot();
         loadMessages();
+        plugin.refreshMetrics();
+    }
+
+    public CompletableFuture<Void> flushWritesAsync() {
+        return yamlWriter.flushAsync();
     }
 
     private void rebuildSnapshot() {
@@ -142,6 +151,7 @@ public final class ConfigManager {
         File configFile = new File(plugin.getDataFolder(), "config.yml");
         yamlWriter.write(configFile.toPath(), plugin.getConfig().saveToString());
         rebuildSnapshot();
+        plugin.refreshMetrics();
     }
 
     public ConfigSnapshot snapshot() {
@@ -381,18 +391,18 @@ public final class ConfigManager {
         return snapshot.get().savedPerformancePresets();
     }
 
-    public Component message(String key) {
+    public String message(String key) {
         return message(key, Collections.emptyMap());
     }
 
-    public Component message(String key, Map<String, String> placeholders) {
+    public String message(String key, Map<String, String> placeholders) {
         String raw = messages == null ? null : messages.getString(key);
         if (raw == null) {
             raw = "<color:#FF55FF>Missing message: " + key + "</color>";
         }
 
         String resolved = replacePlaceholders(normalizeMessageTheme(raw), placeholders);
-        return deserialize(resolved, "messages." + key);
+        return toLegacy(deserialize(resolved, "messages." + key));
     }
 
     public Component deserialize(String input, String context) {
@@ -411,7 +421,11 @@ public final class ConfigManager {
 
     public String toLegacy(String input, String context) {
         Component component = deserialize(input, context);
-        return legacySerializer.serialize(component);
+        return toLegacy(component);
+    }
+
+    public String toLegacy(Component component) {
+        return legacySerializer.serialize(component == null ? Component.empty() : component);
     }
 
     public String toPlain(String input, String context) {
@@ -1007,7 +1021,7 @@ public final class ConfigManager {
     }
 
     private void logWarn(String message) {
-        plugin.getComponentLogger().warn(miniMessage.deserialize(message));
+        plugin.getLogger().warning(PlainTextComponentSerializer.plainText().serialize(miniMessage.deserialize(message)));
     }
 
     public record ConfigSnapshot(

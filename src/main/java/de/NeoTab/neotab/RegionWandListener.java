@@ -26,7 +26,7 @@ public final class RegionWandListener implements Listener {
     public ItemStack createWand() {
         ItemStack itemStack = new ItemStack(Material.BLAZE_ROD);
         ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.displayName(configManager.deserialize("<gradient:#AA00AA:#BA55D3>NeoTab Region Wand</gradient>", "region-wand.name"));
+        itemMeta.setDisplayName(configManager.toLegacy("<gradient:#AA00AA:#BA55D3>NeoTab Region Wand</gradient>", "region-wand.name"));
         itemMeta.getPersistentDataContainer().set(wandKey, PersistentDataType.BYTE, (byte) 1);
         itemStack.setItemMeta(itemMeta);
         return itemStack;

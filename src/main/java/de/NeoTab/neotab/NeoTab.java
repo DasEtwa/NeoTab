@@ -1,14 +1,13 @@
 package de.NeoTab.neotab;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.luckperms.api.LuckPerms;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class NeoTab extends JavaPlugin implements Listener {
@@ -37,9 +36,10 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private AdvancementCounterModule advancementCounterModule;
     private StructurePopupModule structurePopupModule;
     private NeoTabGui neoTabGui;
-    private LuckPerms luckPerms;
+    private LuckPermsSupport luckPermsSupport;
     private boolean luckPermsWarned;
     private AsyncYamlWriter yamlWriter;
+    private NeoTabMetrics neoTabMetrics;
 
     @Override
     public void onEnable() {
@@ -94,17 +94,17 @@ public final class NeoTab extends JavaPlugin implements Listener {
         tabUpdater.start();
         tabUpdater.updateAllNow();
         scoreboardService.start();
+        scoreboardService.warnIfAggressiveInterval();
         startActionBarExtras();
         updateChecker.start();
+        initializeMetrics();
 
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab enabled.</bold></gradient>");
     }
 
     @Override
     public void onDisable() {
-        if (neoTabGui != null) {
-            neoTabGui.closeAll();
-        }
+        closePluginInventories();
         if (chatInputManager != null) {
             chatInputManager.cancelAll(false);
         }
@@ -116,9 +116,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             scoreboardService.stop();
         }
         if (regionManager != null) {
-            for (org.bukkit.entity.Player player : getServer().getOnlinePlayers()) {
-                regionManager.handleQuit(player);
-            }
+            regionManager.shutdown();
         }
         if (tabUpdater != null) {
             tabUpdater.stop();
@@ -127,14 +125,26 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (updateChecker != null) {
             updateChecker.stop();
         }
+        if (neoTabMetrics != null) {
+            neoTabMetrics.shutdown();
+        }
         if (yamlWriter != null) {
             yamlWriter.close();
         }
         logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab disabled.</bold></gradient>");
     }
 
+    void closePluginInventories() {
+        for (Player player : getServer().getOnlinePlayers()) {
+            org.bukkit.inventory.InventoryHolder holder = player.getOpenInventory().getTopInventory().getHolder();
+            if (holder instanceof NeoTabInventoryHolder) {
+                player.closeInventory();
+            }
+        }
+    }
+
     public void logInfo(String message) {
-        getComponentLogger().info(miniMessage.deserialize(message));
+        getLogger().info(PlainTextComponentSerializer.plainText().serialize(miniMessage.deserialize(message)));
     }
 
     public ConfigManager getConfigManager() {
@@ -196,17 +206,23 @@ public final class NeoTab extends JavaPlugin implements Listener {
         return neoTabGui;
     }
 
-    public LuckPerms ensureLuckPerms() {
-        if (luckPerms == null && configManager != null && configManager.isLuckPermsPrefixEnabled()) {
-            luckPerms = fetchLuckPerms(true);
+    public void refreshMetrics() {
+        if (neoTabMetrics != null) {
+            neoTabMetrics.refresh();
         }
-        return luckPerms;
+    }
+
+    LuckPermsSupport ensureLuckPerms() {
+        if (luckPermsSupport == null && configManager != null && configManager.isLuckPermsPrefixEnabled()) {
+            luckPermsSupport = fetchLuckPerms(true);
+        }
+        return luckPermsSupport;
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (tabUpdater != null) {
-            tabUpdater.handleJoin();
+            tabUpdater.handleJoin(event.getPlayer());
         }
         if (updateChecker != null) {
             java.util.UUID uuid = event.getPlayer().getUniqueId();
@@ -221,13 +237,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             scoreboardService.handleJoin(event.getPlayer());
         }
         if (regionManager != null) {
-            java.util.UUID uuid = event.getPlayer().getUniqueId();
-            getServer().getScheduler().runTaskLater(this, () -> {
-                Player player = getServer().getPlayer(uuid);
-                if (player != null && player.isOnline()) {
-                    regionManager.handleMove(player);
-                }
-            }, 5L);
+            regionManager.handleMove(event.getPlayer());
         }
     }
 
@@ -235,7 +245,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (tabUpdater != null) {
             tabUpdater.handleDisconnect(event.getPlayer().getUniqueId());
-            getServer().getScheduler().runTask(this, tabUpdater::handleQuit);
+            tabUpdater.handleQuit();
         }
         if (regionManager != null) {
             regionManager.handleQuit(event.getPlayer());
@@ -309,31 +319,54 @@ public final class NeoTab extends JavaPlugin implements Listener {
         return configManager != null && configManager.getActionBarConfig().enabled();
     }
 
-    private void hookLuckPerms() {
-        if (configManager != null && !configManager.isLuckPermsPrefixEnabled()) {
-            luckPerms = null;
-            return;
+    private void initializeMetrics() {
+        try {
+            neoTabMetrics = new NeoTabMetrics(this);
+            neoTabMetrics.start();
+        } catch (Throwable error) {
+            neoTabMetrics = null;
+            try {
+                if (getConfig().getBoolean("debug", false)) {
+                    getLogger().log(java.util.logging.Level.FINE, "bStats initialization failed; NeoTab will continue without metrics.", error);
+                }
+            } catch (Throwable ignored) {
+                // Metrics failures must never affect the plugin lifecycle.
+            }
         }
-        luckPerms = fetchLuckPerms(true);
     }
 
-    private LuckPerms fetchLuckPerms(boolean warn) {
+    private void hookLuckPerms() {
+        if (configManager != null && !configManager.isLuckPermsPrefixEnabled()) {
+            luckPermsSupport = null;
+            return;
+        }
+        luckPermsSupport = fetchLuckPerms(true);
+    }
+
+    private LuckPermsSupport fetchLuckPerms(boolean warn) {
         if (!getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
-            if (warn && !luckPermsWarned) {
-                luckPermsWarned = true;
-                getLogger().warning("LuckPerms not found; prefix/suffix support disabled.");
-            }
+            warnLuckPermsUnavailable(warn, null);
             return null;
         }
 
-        RegisteredServiceProvider<LuckPerms> provider = getServer().getServicesManager().getRegistration(LuckPerms.class);
-        LuckPerms resolved = provider == null ? null : provider.getProvider();
-
-        if (resolved == null && warn && !luckPermsWarned) {
-            luckPermsWarned = true;
-            getLogger().warning("LuckPerms not found; prefix/suffix support disabled.");
+        try {
+            LuckPermsSupport resolved = LuckPermsIntegration.create(this);
+            if (resolved == null) {
+                warnLuckPermsUnavailable(warn, null);
+            }
+            return resolved;
+        } catch (LinkageError | RuntimeException ex) {
+            warnLuckPermsUnavailable(warn, ex);
+            return null;
         }
+    }
 
-        return resolved;
+    private void warnLuckPermsUnavailable(boolean warn, Throwable cause) {
+        if (!warn || luckPermsWarned) {
+            return;
+        }
+        luckPermsWarned = true;
+        String detail = cause == null || cause.getMessage() == null ? "" : " (" + cause.getMessage() + ")";
+        getLogger().warning("LuckPerms not found or unavailable; prefix/suffix support disabled." + detail);
     }
 }

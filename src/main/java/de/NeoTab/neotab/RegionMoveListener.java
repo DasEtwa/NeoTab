@@ -2,9 +2,11 @@ package de.NeoTab.neotab;
 
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 
 public final class RegionMoveListener implements Listener {
     private final RegionManager regionManager;
@@ -13,12 +15,17 @@ public final class RegionMoveListener implements Listener {
         this.regionManager = regionManager;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         if (!changedBlockOrWorld(event.getFrom(), event.getTo())) {
             return;
         }
-        regionManager.handleMove(event.getPlayer());
+        regionManager.handleMove(event.getPlayer(), event.getTo());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        regionManager.handleRespawn(event.getPlayer(), event.getRespawnLocation());
     }
 
     @EventHandler
@@ -26,8 +33,8 @@ public final class RegionMoveListener implements Listener {
         regionManager.handleQuit(event.getPlayer());
     }
 
-    private boolean changedBlockOrWorld(Location from, Location to) {
-        if (to == null) {
+    static boolean changedBlockOrWorld(Location from, Location to) {
+        if (from == null || to == null) {
             return false;
         }
         if (from.getWorld() == null || to.getWorld() == null || !from.getWorld().equals(to.getWorld())) {

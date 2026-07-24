@@ -2,22 +2,20 @@ package de.NeoTab.neotab;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -25,7 +23,7 @@ public final class UpdateChecker {
     public static final String NOTIFY_PERMISSION = "neotab.update.notify";
 
     private static final String PROJECT_SLUG = "neotab";
-    private static final String LOADER = "paper";
+    private static final Set<String> SUPPORTED_LOADERS = Set.of("bukkit", "spigot", "paper");
     private static final String DOWNLOAD_URL = "https://modrinth.com/plugin/neotab/versions";
     private static final String API_URL = "https://api.modrinth.com/v2/project/" + PROJECT_SLUG + "/version";
     private static final Pattern STRING_VALUE_PATTERN = Pattern.compile("\"((?:\\\\.|[^\"])*)\"");
@@ -57,8 +55,8 @@ public final class UpdateChecker {
             return;
         }
 
-        String currentVersion = plugin.getPluginMeta().getVersion();
-        String minecraftVersion = Bukkit.getMinecraftVersion();
+        String currentVersion = plugin.getDescription().getVersion();
+        String minecraftVersion = minecraftVersion();
         long delayTicks = config.checkDelaySeconds() * 20L;
         task = Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> check(config, currentVersion, minecraftVersion, checkGeneration), delayTicks);
     }
@@ -83,7 +81,16 @@ public final class UpdateChecker {
             return;
         }
 
-        player.sendMessage(Component.text(result.message(), NamedTextColor.LIGHT_PURPLE));
+        player.sendMessage(ChatColor.LIGHT_PURPLE + result.message());
+    }
+
+    static String minecraftVersion() {
+        return minecraftVersionFromBukkitVersion(Bukkit.getBukkitVersion());
+    }
+
+    static String minecraftVersionFromBukkitVersion(String bukkitVersion) {
+        int separator = bukkitVersion.indexOf('-');
+        return separator < 0 ? bukkitVersion : bukkitVersion.substring(0, separator);
     }
 
     private void check(ConfigManager.UpdateCheckerConfig config, String currentVersion, String minecraftVersion, int checkGeneration) {
@@ -91,7 +98,7 @@ public final class UpdateChecker {
             List<ModrinthVersion> versions = fetchVersions(currentVersion);
             Optional<ModrinthVersion> latest = versions.stream()
                 .filter(version -> isAllowedVersionType(version, config.includeBeta()))
-                .filter(version -> version.loaders().contains(LOADER))
+                .filter(version -> version.loaders().stream().anyMatch(SUPPORTED_LOADERS::contains))
                 .filter(version -> version.gameVersions().contains(minecraftVersion))
                 .max(this::compareModrinthVersions);
 
@@ -118,8 +125,7 @@ public final class UpdateChecker {
     }
 
     private List<ModrinthVersion> fetchVersions(String currentVersion) throws IOException, InterruptedException {
-        String query = "loaders=" + URLEncoder.encode("[\"" + LOADER + "\"]", StandardCharsets.UTF_8)
-            + "&include_changelog=false";
+        String query = "include_changelog=false";
         HttpRequest request = HttpRequest.newBuilder(URI.create(API_URL + "?" + query))
             .timeout(Duration.ofSeconds(8))
             .header("User-Agent", "DasEtwa/NeoTab/" + currentVersion + " (https://github.com/DasEtwa/NeoTab)")

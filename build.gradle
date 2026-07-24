@@ -1,9 +1,13 @@
 plugins {
     id "java"
+    id "com.gradleup.shadow" version "9.6.0"
 }
 
 group = "de.NeoTab"
-version = "1.3.3"
+version = "1.4.0-Beta.1"
+
+def adventureVersion = "4.17.0"
+def bstatsVersion = "3.2.1"
 
 java {
     toolchain {
@@ -12,13 +16,20 @@ java {
 }
 
 dependencies {
-    compileOnly "io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT"
+    compileOnly "org.spigotmc:spigot-api:1.20.6-R0.1-SNAPSHOT"
     compileOnly "net.luckperms:api:5.5"
     compileOnly "me.clip:placeholderapi:2.12.2"
 
+    implementation "net.kyori:adventure-api:${adventureVersion}"
+    implementation "net.kyori:adventure-text-minimessage:${adventureVersion}"
+    implementation "net.kyori:adventure-text-serializer-gson:${adventureVersion}"
+    implementation "net.kyori:adventure-text-serializer-legacy:${adventureVersion}"
+    implementation "net.kyori:adventure-text-serializer-plain:${adventureVersion}"
+    implementation "org.bstats:bstats-bukkit:${bstatsVersion}"
+
     testImplementation platform("org.junit:junit-bom:5.10.2")
     testImplementation "org.junit.jupiter:junit-jupiter"
-    testImplementation "io.papermc.paper:paper-api:1.20.6-R0.1-SNAPSHOT"
+    testImplementation "org.spigotmc:spigot-api:1.20.6-R0.1-SNAPSHOT"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
@@ -32,6 +43,43 @@ test {
     useJUnitPlatform()
 }
 
+tasks.register("verifyPlatformCompatibility") {
+    group = "verification"
+    description = "Rejects Paper-only APIs and optional dependency leakage from shared NeoTab sources."
+    inputs.files(fileTree("src/main/java") { include "**/*.java" })
+    doLast {
+        def forbidden = [
+            "import io.papermc.",
+            "import com.destroystokyo.",
+            "getComponentLogger(",
+            "getPluginMeta(",
+            "AsyncChatEvent",
+            ".playerListName(",
+            ".sendPlayerListHeaderAndFooter("
+        ]
+        def violations = []
+        fileTree("src/main/java").matching { include "**/*.java" }.each { sourceFile ->
+            sourceFile.readLines("UTF-8").eachWithIndex { line, index ->
+                forbidden.each { marker ->
+                    if (line.contains(marker)) {
+                        violations << "${sourceFile}:${index + 1}: ${marker}"
+                    }
+                }
+                if (sourceFile.name != "LuckPermsIntegration.java" && line.contains("import net.luckperms.")) {
+                    violations << "${sourceFile}:${index + 1}: LuckPerms API outside the isolated integration"
+                }
+            }
+        }
+        if (!violations.isEmpty()) {
+            throw new GradleException("Platform compatibility violation found:\n" + violations.join("\n"))
+        }
+    }
+}
+
+tasks.check {
+    dependsOn tasks.named("verifyPlatformCompatibility")
+}
+
 def pluginVersion = version.toString()
 
 processResources {
@@ -42,6 +90,23 @@ processResources {
     }
 }
 
-jar {
+tasks.jar {
+    enabled = false
+}
+
+tasks.shadowJar {
     archiveBaseName = "NeoTab"
+    archiveClassifier = ""
+    mergeServiceFiles()
+    filesMatching("META-INF/services/**") {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
+    relocate "net.kyori", "de.NeoTab.neotab.lib.kyori"
+    relocate "com.google.gson", "de.NeoTab.neotab.lib.gson"
+    relocate "org.bstats", "de.NeoTab.neotab.lib.bstats"
+    exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
+}
+
+tasks.assemble {
+    dependsOn tasks.shadowJar
 }

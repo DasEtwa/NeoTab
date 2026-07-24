@@ -4,11 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -290,8 +288,7 @@ public final class NeoTabGui implements Listener {
     private void handleScoreboardClick(Player player, int slot) {
         switch (slot) {
             case 10 -> {
-                if (!player.hasPermission("neotab.scoreboard.toggle")) {
-                    player.sendMessage(configManager.message("no-permission"));
+                if (!requireScoreboardPermission(player, "neotab.scoreboard.toggle")) {
                     return;
                 }
                 boolean enabled = !configManager.getScoreboardConfig().enabled();
@@ -309,8 +306,7 @@ public final class NeoTabGui implements Listener {
     }
 
     private void openScoreboardPresets(Player player) {
-        if (!player.hasPermission("neotab.scoreboard.presets")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.presets")) {
             return;
         }
 
@@ -337,15 +333,14 @@ public final class NeoTabGui implements Listener {
             openScoreboard(player);
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.presets")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.presets")) {
             return;
         }
 
         if (slot == 4) {
             player.closeInventory();
             chatInputManager.request(player, configManager.message("input-scoreboard-preset-start"), (inputPlayer, input) -> {
-                if (!requirePermission(inputPlayer, "neotab.scoreboard.presets")) {
+                if (!requireScoreboardPermission(inputPlayer, "neotab.scoreboard.presets")) {
                     return;
                 }
                 String presetName = configManager.normalizePerformancePresetName(input);
@@ -392,8 +387,7 @@ public final class NeoTabGui implements Listener {
             openScoreboardPresets(player);
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.presets")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.presets")) {
             return;
         }
 
@@ -440,8 +434,7 @@ public final class NeoTabGui implements Listener {
         if (slot < 0 || slot >= ConfigManager.MAX_SCOREBOARD_LINES) {
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.edit")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.edit")) {
             return;
         }
 
@@ -466,8 +459,7 @@ public final class NeoTabGui implements Listener {
             openScoreboardLines(player);
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.edit")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.edit")) {
             return;
         }
 
@@ -489,7 +481,7 @@ public final class NeoTabGui implements Listener {
         if (slot == 15) {
             player.closeInventory();
             chatInputManager.request(player, configManager.message("input-scoreboard-line-start", Map.of("line", Integer.toString(lineNumber))), (inputPlayer, input) -> {
-                if (!requirePermission(inputPlayer, "neotab.scoreboard.edit")) {
+                if (!requireScoreboardPermission(inputPlayer, "neotab.scoreboard.edit")) {
                     return;
                 }
                 scoreboardService.setLine(lineNumber, input);
@@ -525,8 +517,7 @@ public final class NeoTabGui implements Listener {
             openScoreboard(player);
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.edit")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.edit")) {
             return;
         }
         if (slot == 4) {
@@ -675,8 +666,7 @@ public final class NeoTabGui implements Listener {
         if (preset == null) {
             return;
         }
-        if (!player.hasPermission("neotab.scoreboard.edit")) {
-            player.sendMessage(configManager.message("no-permission"));
+        if (!requireScoreboardPermission(player, "neotab.scoreboard.edit")) {
             return;
         }
 
@@ -742,9 +732,12 @@ public final class NeoTabGui implements Listener {
                 player.sendMessage(configManager.message(stopped ? "timer-stopped" : "timer-not-running"));
             }
             case 15 -> {
+                if (!requireTimerTextPermission(player)) {
+                    return;
+                }
                 player.closeInventory();
                 chatInputManager.request(player, configManager.message("input-timer-text-start"), (inputPlayer, input) -> {
-                    if (!requirePermission(inputPlayer, "neotab.timer")) {
+                    if (!requireTimerTextPermission(inputPlayer)) {
                         return;
                     }
                     configManager.setActionBarTimerRunningFormat(input);
@@ -867,6 +860,32 @@ public final class NeoTabGui implements Listener {
         return false;
     }
 
+    private boolean requireScoreboardPermission(Player player, String childPermission) {
+        if (hasScoreboardMutationPermission(
+            player.hasPermission("neotab.scoreboard"),
+            player.hasPermission(childPermission)
+        )) {
+            return true;
+        }
+        player.sendMessage(configManager.message("no-permission"));
+        return false;
+    }
+
+    private boolean requireTimerTextPermission(Player player) {
+        if (TabCommand.canEditTimerText(
+            player.hasPermission("neotab.timer"),
+            player.hasPermission("neotab.timer.admin")
+        )) {
+            return true;
+        }
+        player.sendMessage(configManager.message("no-permission"));
+        return false;
+    }
+
+    static boolean hasScoreboardMutationPermission(boolean basePermission, boolean childPermission) {
+        return basePermission && childPermission;
+    }
+
     private String tabIntervalLore(String preset) {
         Integer ticks = configManager.getPerformancePresetTicks(preset);
         String suffix = preset.equals(configManager.getActivePerformancePreset()) ? " Current preset." : "";
@@ -921,7 +940,7 @@ public final class NeoTabGui implements Listener {
         GuiHolder holder = new GuiHolder(menuType);
         holder.setLineNumber(lineNumber);
         holder.setPresetName(presetName);
-        Inventory inventory = Bukkit.createInventory(holder, 27, Component.text(title));
+        Inventory inventory = Bukkit.createInventory(holder, 27, title);
         holder.setInventory(inventory);
         return inventory;
     }
@@ -933,11 +952,8 @@ public final class NeoTabGui implements Listener {
     private ItemStack item(Material material, String name, String lore) {
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.displayName(Component.text(name, NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
-
-        ArrayList<Component> loreComponents = new ArrayList<>();
-        loreComponents.add(Component.text(lore, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
-        meta.lore(loreComponents);
+        meta.setDisplayName(ChatColor.RESET.toString() + ChatColor.LIGHT_PURPLE + name);
+        meta.setLore(List.of(ChatColor.RESET.toString() + ChatColor.GRAY + lore));
         itemStack.setItemMeta(meta);
         return itemStack;
     }
@@ -962,7 +978,7 @@ public final class NeoTabGui implements Listener {
         PERFORMANCE_NOTICE
     }
 
-    private static final class GuiHolder implements InventoryHolder {
+    private static final class GuiHolder implements NeoTabInventoryHolder {
         private final MenuType menuType;
         private Inventory inventory;
         private int lineNumber;

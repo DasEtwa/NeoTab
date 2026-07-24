@@ -3,7 +3,7 @@ version: "${version}"
 main: de.NeoTab.neotab.NeoTab
 api-version: "1.20"
 softdepend: [LuckPerms, PlaceholderAPI, WorldEdit, FastAsyncWorldEdit]
-description: Animated tablist header and footer with stats, PlaceholderAPI support, and toggles
+description: Paper, Spigot, and CraftBukkit tablist with stats, profiles, and extras
 author: muffinonboard aka DasEtwa
 
 commands:
@@ -79,8 +79,10 @@ permissions:
     description: Allows using the NeoTab ActionBar Timer
     default: op
   neotab.timer.admin:
-    description: Reserved for future ActionBar Timer admin controls
+    description: Allows changing the global persistent ActionBar Timer text
     default: op
+    children:
+      neotab.timer: true
   neotab.region:
     description: Allows managing NeoTab Region Profiles
     default: op
