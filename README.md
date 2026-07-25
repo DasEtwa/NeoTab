@@ -18,7 +18,7 @@ Discord: https://discord.gg/pjM6ztnzMR
 | `1.3.1` | Stable patch | `1.20.6+` target | Fixes a delayed scoreboard join race, makes equal-priority ActionBar selection deterministic, and hides unauthorized ActionBar tab completions. |
 | `1.3.2` | Stable patch | `1.20.6+` target | Hardens lifecycle and permission checks, improves tab/scoreboard coexistence, spatially indexes expensive lookups, modernizes Paper APIs, and moves YAML disk writes off the server thread. |
 | `1.3.3` | Stable patch | `1.20.6+` target | Re-evaluates temporary external scoreboard ownership during normal ticks so NeoTab resumes automatically after another sidebar plugin releases control. |
-| `1.4.0-Beta.1` | Beta | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, cross-platform animation fixes, and extensive runtime/performance hardening. |
+| `1.4.0` | Stable | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, cross-platform animation fixes, and extensive runtime/performance hardening. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
@@ -31,7 +31,7 @@ Version docs:
 - [NeoTab 1.3.1](docs/1.3.1.md)
 - [NeoTab 1.3.2](docs/1.3.2.md)
 - [NeoTab 1.3.3](docs/1.3.3.md)
-- [NeoTab 1.4.0-Beta.1](docs/1.4.0.md)
+- [NeoTab 1.4.0](docs/1.4.0.md)
 
 ## Features
 
@@ -71,7 +71,7 @@ Version docs:
 Output:
 
 ```text
-build/libs/NeoTab-1.4.0-Beta.1.jar
+build/libs/NeoTab-1.4.0.jar
 ```
 
 ## Anonymous Metrics
@@ -321,6 +321,6 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current source version is `1.4.0-Beta.1`.
+- The current source version is `1.4.0`.
 - CraftBukkit ActionBar output uses a narrow runtime bridge because the Bukkit API has no public ActionBar method. NeoTab falls back to the vanilla `title` command if that bridge changes in a future Minecraft release.
 - Interactive MiniMessage click/hover events are not preserved at legacy Bukkit output boundaries; RGB colors, gradients, and normal text decorations are preserved.
