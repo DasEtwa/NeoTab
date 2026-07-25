@@ -1,0 +1,40 @@
+{
+  "study": "NeoTab 1.4.0 vs. TAB 6.1.0 default configurations",
+  "date": "2026-07-25",
+  "validRepetitionsPerPlugin": 5,
+  "measurementSecondsPerRun": 600,
+  "sampleIntervalSeconds": 30,
+  "bots": 20,
+  "deltaConvention": "TAB minus NeoTab",
+  "statistics": {
+    "neotab": {
+      "rssMiB": { "mean": 898.043008, "median": 894.666016, "sampleStandardDeviation": 9.571441, "minimum": 887.447852, "maximum": 911.017773 },
+      "cpuPercent": { "mean": 49.088969, "median": 50.265850, "sampleStandardDeviation": 10.951406, "minimum": 36.212686, "maximum": 62.111274 },
+      "threads": { "mean": 91.88, "median": 88.25, "sampleStandardDeviation": 8.521047, "minimum": 84.15, "maximum": 101.60 },
+      "heapMiB": { "mean": 399.134742, "median": 398.988468, "sampleStandardDeviation": 8.487817, "minimum": 388.125292, "maximum": 409.337461 },
+      "nonHeapMiB": { "mean": 221.196721, "median": 218.576190, "sampleStandardDeviation": 5.132841, "minimum": 216.554984, "maximum": 228.681778 },
+      "tickMillis": { "mean": 9.252052, "median": 8.554997, "sampleStandardDeviation": 2.447898, "minimum": 6.634138, "maximum": 12.413252 },
+      "tpsOneMinute": { "mean": 20.003011, "median": 20.004611, "sampleStandardDeviation": 0.002805, "minimum": 19.999952, "maximum": 20.005823 },
+      "gcTimeDeltaMillis": { "mean": 2890.4, "median": 2775, "sampleStandardDeviation": 631.530126, "minimum": 2274, "maximum": 3604 },
+      "gcCycleDelta": { "mean": 380, "median": 376, "sampleStandardDeviation": 52.716221, "minimum": 315, "maximum": 443 }
+    },
+    "tab": {
+      "rssMiB": { "mean": 905.369805, "median": 912.401367, "sampleStandardDeviation": 12.544336, "minimum": 885.852148, "maximum": 915.987500 },
+      "cpuPercent": { "mean": 51.561857, "median": 49.308171, "sampleStandardDeviation": 12.148078, "minimum": 37.989218, "maximum": 67.343537 },
+      "threads": { "mean": 96.25, "median": 92.10, "sampleStandardDeviation": 7.609862, "minimum": 89.20, "maximum": 105.00 },
+      "heapMiB": { "mean": 420.068995, "median": 417.014284, "sampleStandardDeviation": 8.971787, "minimum": 411.344886, "maximum": 429.682915 },
+      "nonHeapMiB": { "mean": 221.374315, "median": 222.977698, "sampleStandardDeviation": 4.525330, "minimum": 214.270699, "maximum": 225.857710 },
+      "tickMillis": { "mean": 7.448110, "median": 6.021095, "sampleStandardDeviation": 2.555411, "minimum": 5.065916, "maximum": 10.747128 },
+      "tpsOneMinute": { "mean": 20.002800, "median": 20.003308, "sampleStandardDeviation": 0.002736, "minimum": 19.999989, "maximum": 20.006071 },
+      "gcTimeDeltaMillis": { "mean": 3794.2, "median": 3761, "sampleStandardDeviation": 543.280038, "minimum": 3179, "maximum": 4543 },
+      "gcCycleDelta": { "mean": 445, "median": 419, "sampleStandardDeviation": 66.177791, "minimum": 366, "maximum": 527 }
+    },
+    "pairedDelta": {
+      "rssMiB": { "mean": 7.326797, "median": 11.365234, "sampleStandardDeviation": 15.715316 },
+      "cpuPercentagePoints": { "mean": 2.472888, "median": 3.443946, "sampleStandardDeviation": 3.804891 },
+      "heapMiB": { "mean": 20.934253, "median": 20.233000, "sampleStandardDeviation": 9.375761 },
+      "tickMillis": { "mean": -1.803941, "median": -1.666123, "sampleStandardDeviation": 0.415975 },
+      "gcTimeDeltaMillis": { "mean": 903.8, "median": 939, "sampleStandardDeviation": 184.099701 }
+    }
+  }
+}

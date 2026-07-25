@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="390" viewBox="0 0 820 390" role="img" aria-labelledby="title desc">
+  <title id="title">NeoTab and TAB repeated default-configuration benchmark summary</title>
+  <desc id="desc">Mean values from five validated ten-minute runs. NeoTab averaged 898.0 MiB RSS, 49.1 percent CPU, 399.1 MiB JVM heap, and 9.25 milliseconds tick time. TAB averaged 905.4 MiB RSS, 51.6 percent CPU, 420.1 MiB JVM heap, and 7.45 milliseconds tick time.</desc>
+  <rect x="1" y="1" width="818" height="388" rx="14" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="30" y="38" font-family="Segoe UI, sans-serif" font-size="20" font-weight="700" fill="#24292f">Five validated 10-minute runs per plugin</text>
+  <text x="30" y="62" font-family="Segoe UI, sans-serif" font-size="13" fill="#57606a">Fresh default configurations · mean of per-run averages · lower bars mean less resource use or tick time</text>
+
+  <rect x="30" y="78" width="12" height="12" rx="2" fill="#8250df"/>
+  <text x="48" y="89" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">NeoTab 1.4.0</text>
+  <rect x="160" y="78" width="12" height="12" rx="2" fill="#1f9d8a"/>
+  <text x="178" y="89" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">TAB 6.1.0</text>
+
+  <g transform="translate(30,115)">
+    <text x="0" y="0" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#24292f">Whole-process RSS (MiB)</text>
+    <rect x="0" y="16" width="198" height="17" rx="4" fill="#8250df"/><text x="206" y="30" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">898.0</text>
+    <rect x="0" y="42" width="199" height="17" rx="4" fill="#1f9d8a"/><text x="207" y="56" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">905.4</text>
+  </g>
+  <g transform="translate(430,115)">
+    <text x="0" y="0" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#24292f">Whole-process CPU (%)</text>
+    <rect x="0" y="16" width="135" height="17" rx="4" fill="#8250df"/><text x="143" y="30" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">49.1</text>
+    <rect x="0" y="42" width="142" height="17" rx="4" fill="#1f9d8a"/><text x="150" y="56" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">51.6</text>
+  </g>
+
+  <g transform="translate(30,220)">
+    <text x="0" y="0" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#24292f">JVM heap used (MiB)</text>
+    <rect x="0" y="16" width="172" height="17" rx="4" fill="#8250df"/><text x="180" y="30" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">399.1</text>
+    <rect x="0" y="42" width="181" height="17" rx="4" fill="#1f9d8a"/><text x="189" y="56" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">420.1</text>
+  </g>
+  <g transform="translate(430,220)">
+    <text x="0" y="0" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#24292f">Average tick time (ms)</text>
+    <rect x="0" y="16" width="102" height="17" rx="4" fill="#8250df"/><text x="110" y="30" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">9.25</text>
+    <rect x="0" y="42" width="82" height="17" rx="4" fill="#1f9d8a"/><text x="90" y="56" font-family="Segoe UI, sans-serif" font-size="13" fill="#24292f">7.45</text>
+  </g>
+
+  <line x1="30" y1="310" x2="790" y2="310" stroke="#d8dee4"/>
+  <text x="30" y="338" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#24292f">Both: approximately 20 TPS, 0 protocol errors, 0 premature disconnects</text>
+  <text x="30" y="363" font-family="Segoe UI, sans-serif" font-size="12" fill="#57606a">Whole-server measurements; default profiles differ. See methodology, raw results, and limitations.</text>
+</svg>
