@@ -1,0 +1,162 @@
+{
+  "schemaVersion" : 1,
+  "valid" : true,
+  "startedAtUtc" : "2026-07-25T20:13:19.417364600Z",
+  "finishedAtUtc" : "2026-07-25T20:23:29.415735300Z",
+  "compilation" : {
+    "schemaVersion" : 1,
+    "valid" : true,
+    "automatableNow" : true,
+    "name" : "NeoTab 1.4.0 ten-minute active comparison v2",
+    "targetPlugin" : "NeoTab",
+    "duration" : "PT10M",
+    "sampleInterval" : "PT30S",
+    "estimatedSamples" : 20,
+    "totalBots" : 20,
+    "requiredCapabilities" : [ "ACTIVE_MOVEMENT", "CHAT", "CONNECTIONS", "DURABLE_JOURNAL", "JOIN_STORM", "JUMP", "JVM_GC_METRICS", "PAPER_TICK_METRICS", "PROCESS_METRICS", "RANDOM_DISCONNECT_RECONNECT", "RATE_LIMITED_CHURN", "SPRINT" ],
+    "availableCapabilities" : [ "ACTIVE_MOVEMENT", "AFK", "CHAT", "CONNECTIONS", "DURABLE_JOURNAL", "ENTITY_STRESS", "INVENTORY", "JOIN_LEAVE_WAVES", "JOIN_STORM", "JUMP", "JVM_GC_METRICS", "LUCKPERMS_MUTATION", "MIXED_CLIENT_VERSIONS", "PAPER_TICK_METRICS", "PROCESS_METRICS", "RANDOM_DISCONNECT_RECONNECT", "RATE_LIMITED_CHURN", "REDSTONE_STRESS", "SERVER_COMMANDS", "SIMULTANEOUS_DISCONNECT", "SPRINT", "TELEPORT", "WORLDEDIT_STRESS", "WORLD_GENERATION", "WORLD_ROUTE" ],
+    "missingCapabilities" : [ ],
+    "errors" : [ ],
+    "warnings" : [ ],
+    "normalizedScenario" : {
+      "schemaVersion" : 1,
+      "name" : "NeoTab 1.4.0 ten-minute active comparison v2",
+      "targetPlugin" : "NeoTab",
+      "duration" : "PT10M",
+      "sampleInterval" : "PT30S",
+      "environment" : {
+        "isolatedTestServer" : true,
+        "disposableClone" : false,
+        "maxPlayers" : 20,
+        "allowFaultInjection" : false,
+        "allowedCommands" : [ ]
+      },
+      "plugins" : [ "NeoTab", "LuckPerms", "PlaceholderAPI", "NeoProfilerProbe" ],
+      "cohorts" : [ {
+        "name" : "active",
+        "count" : 20,
+        "clientVersion" : "1.20.6",
+        "behavior" : "ACTIVE"
+      } ],
+      "workloads" : [ {
+        "type" : "JOIN_STORM",
+        "ratePerSecond" : null,
+        "every" : null,
+        "parameters" : null
+      }, {
+        "type" : "FIXED_RATE_CHURN",
+        "ratePerSecond" : 1.0,
+        "every" : null,
+        "parameters" : {
+          "reconnectDelayMilliseconds" : 500
+        }
+      }, {
+        "type" : "RANDOM_DISCONNECT_RECONNECT",
+        "ratePerSecond" : null,
+        "every" : "PT5S",
+        "parameters" : {
+          "reconnectDelayMilliseconds" : 1000
+        }
+      }, {
+        "type" : "MOVE",
+        "ratePerSecond" : null,
+        "every" : "PT1S",
+        "parameters" : null
+      }, {
+        "type" : "JUMP",
+        "ratePerSecond" : null,
+        "every" : "PT5S",
+        "parameters" : null
+      }, {
+        "type" : "SPRINT",
+        "ratePerSecond" : null,
+        "every" : "PT7S",
+        "parameters" : null
+      }, {
+        "type" : "CHAT",
+        "ratePerSecond" : null,
+        "every" : "PT30S",
+        "parameters" : null
+      } ],
+      "actions" : [ ],
+      "faults" : [ ],
+      "metrics" : [ "PROCESS", "JOURNAL", "GC", "TPS", "TICK_TIME" ]
+    }
+  },
+  "sampleCount" : 20,
+  "invalidReasons" : [ ],
+  "driverSummary" : {
+    "atUtc" : "2026-07-25T20:23:28.796Z",
+    "type" : "summary",
+    "requested" : 20,
+    "connected" : 734,
+    "active" : 0,
+    "peakConnected" : 20,
+    "minimumActiveAfterReady" : 0,
+    "ended" : 734,
+    "intentionalEnds" : 734,
+    "prematureEnds" : 0,
+    "errors" : 0,
+    "errorsByMessage" : { },
+    "initialReadyAtUtc" : "2026-07-25T20:13:28.385Z",
+    "startedAtUtc" : "2026-07-25T20:13:22.504Z",
+    "finishedAtUtc" : "2026-07-25T20:23:28.795Z",
+    "phase" : "complete",
+    "seed" : 5133647,
+    "reconnects" : 714,
+    "pendingReconnects" : 0,
+    "maxOfflineMilliseconds" : 1529,
+    "actionsByType" : {
+      "MOVE" : 11702,
+      "FIXED_RATE_CHURN" : 595,
+      "JUMP" : 2263,
+      "RANDOM_DISCONNECT_RECONNECT" : 119,
+      "LAND" : 2026,
+      "SPRINT" : 1614,
+      "SPRINT_STOP" : 1510,
+      "CHAT" : 366
+    },
+    "serverVersions" : {
+      "1.20.6" : "Paper 1.20.6"
+    },
+    "protocolVersions" : {
+      "1.20.6" : 766
+    }
+  },
+  "serverLog" : {
+    "joins" : 734,
+    "leaves" : 734
+  },
+  "processSummaries" : {
+    "residentSetBytes" : {
+      "minimum" : 9.34690816E8,
+      "average" : 9.485651968E8,
+      "maximum" : 9.65767168E8,
+      "p95" : 9.65767168E8,
+      "firstToLastDelta" : -1.9038208E7
+    },
+    "cpuPercent" : {
+      "minimum" : 50.56265814356106,
+      "average" : 56.85645738283951,
+      "maximum" : 67.16402309963678,
+      "p95" : 67.16402309963678,
+      "firstToLastDelta" : -15.227150789737209
+    },
+    "threadCount" : {
+      "minimum" : 93.0,
+      "average" : 100.5,
+      "maximum" : 116.0,
+      "p95" : 116.0,
+      "firstToLastDelta" : -16.0
+    }
+  },
+  "commandEvidence" : [ ],
+  "paperSampleCount" : 20,
+  "installedPlugins" : {
+    "placeholderapi" : "2.12.2",
+    "neoprofilerprobe" : "0.1.0-SNAPSHOT",
+    "neotab" : "1.4.0",
+    "luckperms" : "5.5.53"
+  },
+  "interpretation" : "Validated scenario. Process metrics cover the whole server JVM; Paper metrics cover server health, not exact per-plugin RAM."
+}

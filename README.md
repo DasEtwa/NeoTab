@@ -6,6 +6,12 @@ Modrinth: https://modrinth.com/plugin/neotab/versions
 
 Discord: https://discord.gg/pjM6ztnzMR
 
+[Performance and stability benchmarks are documented separately with methodology, raw results and limitations.](docs/benchmarks/README.md)
+
+[![NeoTab and TAB repeated default-configuration benchmark summary](docs/benchmarks/assets/tab-vs-neotab-summary.svg)](docs/benchmarks/tab-vs-neotab/README.md)
+
+_This is a default-configuration comparison, not a perfectly feature-matched microbenchmark._
+
 ## Versions
 
 | Version | Type | Minecraft | Notes |

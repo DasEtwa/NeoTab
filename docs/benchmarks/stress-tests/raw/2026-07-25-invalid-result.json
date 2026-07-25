@@ -1,0 +1,750 @@
+{
+  "schemaVersion" : 1,
+  "valid" : false,
+  "startedAtUtc" : "2026-07-25T12:30:40.734726500Z",
+  "finishedAtUtc" : "2026-07-25T14:30:58.611281700Z",
+  "compilation" : {
+    "schemaVersion" : 1,
+    "valid" : true,
+    "automatableNow" : true,
+    "name" : "NeoTab 2h: 20 active players, 5 reconnects/s, movement and world routes",
+    "targetPlugin" : "NeoTab",
+    "duration" : "PT2H",
+    "sampleInterval" : "PT30S",
+    "estimatedSamples" : 240,
+    "totalBots" : 20,
+    "requiredCapabilities" : [ "ACTIVE_MOVEMENT", "CONNECTIONS", "DURABLE_JOURNAL", "JUMP", "JVM_GC_METRICS", "PAPER_TICK_METRICS", "PROCESS_METRICS", "RATE_LIMITED_CHURN", "SPRINT", "WORLD_ROUTE" ],
+    "availableCapabilities" : [ "ACTIVE_MOVEMENT", "AFK", "CHAT", "CONNECTIONS", "DURABLE_JOURNAL", "ENTITY_STRESS", "INVENTORY", "JOIN_LEAVE_WAVES", "JOIN_STORM", "JUMP", "JVM_GC_METRICS", "LUCKPERMS_MUTATION", "MIXED_CLIENT_VERSIONS", "PAPER_TICK_METRICS", "PROCESS_METRICS", "RANDOM_DISCONNECT_RECONNECT", "RATE_LIMITED_CHURN", "REDSTONE_STRESS", "SERVER_COMMANDS", "SIMULTANEOUS_DISCONNECT", "SPRINT", "TELEPORT", "WORLDEDIT_STRESS", "WORLD_GENERATION", "WORLD_ROUTE" ],
+    "missingCapabilities" : [ ],
+    "errors" : [ ],
+    "warnings" : [ ],
+    "normalizedScenario" : {
+      "schemaVersion" : 1,
+      "name" : "NeoTab 2h: 20 active players, 5 reconnects/s, movement and world routes",
+      "targetPlugin" : "NeoTab",
+      "duration" : "PT2H",
+      "sampleInterval" : "PT30S",
+      "environment" : {
+        "isolatedTestServer" : true,
+        "disposableClone" : false,
+        "maxPlayers" : 20,
+        "allowFaultInjection" : false,
+        "allowedCommands" : [ "neoprofiler exercise world @a world", "neoprofiler exercise world @a world_nether", "neoprofiler exercise world @a world_the_end" ]
+      },
+      "plugins" : [ "NeoTab", "NeoProfilerProbe" ],
+      "cohorts" : [ {
+        "name" : "active",
+        "count" : 20,
+        "clientVersion" : "1.20.6",
+        "behavior" : "ACTIVE"
+      } ],
+      "workloads" : [ {
+        "type" : "FIXED_RATE_CHURN",
+        "ratePerSecond" : 5.0,
+        "every" : null,
+        "parameters" : {
+          "reconnectDelayMilliseconds" : 500
+        }
+      }, {
+        "type" : "MOVE",
+        "ratePerSecond" : null,
+        "every" : "PT1S",
+        "parameters" : null
+      }, {
+        "type" : "JUMP",
+        "ratePerSecond" : null,
+        "every" : "PT5S",
+        "parameters" : null
+      }, {
+        "type" : "SPRINT",
+        "ratePerSecond" : null,
+        "every" : "PT7S",
+        "parameters" : null
+      }, {
+        "type" : "WORLD_ROUTE",
+        "ratePerSecond" : null,
+        "every" : "PT1M",
+        "parameters" : {
+          "route" : [ "world", "world_nether", "world_the_end", "world" ]
+        }
+      } ],
+      "actions" : [ ],
+      "faults" : [ ],
+      "metrics" : [ "PROCESS", "JOURNAL", "GC", "TPS", "TICK_TIME" ]
+    }
+  },
+  "sampleCount" : 240,
+  "invalidReasons" : [ "FIXED_RATE_CHURN executed 24450 times; expected at least 35279 of 35999 scheduled events" ],
+  "driverSummary" : {
+    "atUtc" : "2026-07-25T14:30:57.009Z",
+    "type" : "summary",
+    "requested" : 20,
+    "connected" : 24470,
+    "active" : 0,
+    "peakConnected" : 20,
+    "minimumActiveAfterReady" : 0,
+    "ended" : 24470,
+    "intentionalEnds" : 24470,
+    "prematureEnds" : 0,
+    "errors" : 0,
+    "errorsByMessage" : { },
+    "initialReadyAtUtc" : "2026-07-25T12:30:55.991Z",
+    "startedAtUtc" : "2026-07-25T12:30:43.891Z",
+    "finishedAtUtc" : "2026-07-25T14:30:57.009Z",
+    "phase" : "complete",
+    "seed" : 5133647,
+    "reconnects" : 24450,
+    "pendingReconnects" : 0,
+    "maxOfflineMilliseconds" : 2433,
+    "actionsByType" : {
+      "FIXED_RATE_CHURN" : 24450,
+      "MOVE" : 105597,
+      "JUMP" : 23188,
+      "LAND" : 21102,
+      "SPRINT" : 16687,
+      "SPRINT_STOP" : 13763
+    },
+    "serverVersions" : {
+      "1.20.6" : "Paper 1.20.6"
+    },
+    "protocolVersions" : {
+      "1.20.6" : 766
+    }
+  },
+  "serverLog" : {
+    "joins" : 24470,
+    "leaves" : 24470
+  },
+  "processSummaries" : {
+    "residentSetBytes" : {
+      "minimum" : 9.89282304E8,
+      "average" : 1.1914331306666667E9,
+      "maximum" : 1.20444928E9,
+      "p95" : 1.201618944E9,
+      "firstToLastDelta" : 1.59674368E8
+    },
+    "cpuPercent" : {
+      "minimum" : 39.37036667663974,
+      "average" : 62.26496933371888,
+      "maximum" : 219.53553274195156,
+      "p95" : 78.30060146878012,
+      "firstToLastDelta" : -147.46855471300088
+    },
+    "threadCount" : {
+      "minimum" : 78.0,
+      "average" : 79.2875,
+      "maximum" : 86.0,
+      "p95" : 80.0,
+      "firstToLastDelta" : -6.0
+    }
+  },
+  "commandEvidence" : [ {
+    "atUtc" : "2026-07-25T12:31:56.053635100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:32:56.116743700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:33:56.174943100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:34:56.031739200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:35:56.049562100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:36:56.088400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:37:56.027196300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:38:56.036296400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:39:56.038749900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:40:56.102548600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:41:56.042511900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:42:56.059865300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:43:56.040055500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:44:56.045575400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:45:56.075163500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:46:56.083998700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:47:56.056767900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:48:56.087602Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:49:56.031923600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:50:55.994617300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:51:56.064978800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:52:56.086598500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:53:55.996537600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:54:56.080868900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:55:56.056430700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:56:56.102476Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:57:56.039452300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:58:56.089205600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T12:59:56.084671800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:00:56.036064200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:01:56.033455600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:02:56.013486900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:03:55.999699800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:04:56.087021900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:05:56.015720200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:06:56.025529400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:07:56.043344500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:08:56.064010700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:09:56.018225700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:10:56.089431200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:11:56.008096300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:12:56.027069Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:13:56.075892200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:14:55.994051200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:15:56.016606600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:16:56.032610800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:17:56.057821100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:18:56.010612600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:19:56.032438200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:20:56.032592500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:21:56.038874900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:22:56.048295300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:23:56.046634300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:24:56.050533400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:25:55.997815900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:26:56.075524200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:27:56.044422Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:28:56.062697700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:29:56.091010600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:30:56.087569500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:31:56.079324Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:32:56.074992Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:33:56.039767600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:34:56.084542300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:35:55.998931900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:36:56.072059400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:37:56.062684500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:38:56.105654400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:39:56.082563200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:40:56.039298200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:41:56.027050200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:42:56.088599600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:43:56.065792300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:44:56.039732900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:45:56.084637200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:46:56.055626Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:47:56.015264500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:48:56.064433100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:49:56.037693Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:50:55.995439200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:51:56.080429800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:52:56.085364300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 14 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:53:56.066551Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:54:56.021129900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:55:56.003528400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:56:56.003456500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:57:56.076552Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:58:56.028583700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T13:59:56.091016400Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:00:56.087745900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:01:56.044641700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:02:56.005054500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:03:56.091813500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:04:56.087470100Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 14 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:05:56.070534200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:06:56.019051600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:07:56.073668700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:08:56.003095600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:09:55.996329900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:10:55.996316600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:11:56.047797600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:12:56.009595300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:13:56.070253300Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:14:56.041587900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:15:55.998233Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:16:56.079969900Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:17:56.029013700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:18:56.010527500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:19:56.062646700Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:20:56.013850800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:21:56.104036600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:22:56.067437Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:23:56.018873200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:24:56.037382500Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 15 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:25:56.017442200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:26:56.089340800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:27:56.016959200Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:28:56.062461600Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_nether",
+    "response" : "NeoProfiler exercise world affected 17 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:29:56.010238Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world_the_end",
+    "response" : "NeoProfiler exercise world affected 16 player(s).\n"
+  }, {
+    "atUtc" : "2026-07-25T14:30:56.075463800Z",
+    "type" : "WORLD_ROUTE",
+    "command" : "neoprofiler exercise world @a world",
+    "response" : "NeoProfiler exercise world affected 18 player(s).\n"
+  } ],
+  "paperSampleCount" : 240,
+  "installedPlugins" : {
+    "neoprofilerprobe" : "0.1.0-SNAPSHOT",
+    "placeholderapi" : "2.12.2",
+    "luckperms" : "5.5.53",
+    "neotab" : "1.4.0-Beta.1"
+  },
+  "interpretation" : "INVALID SCENARIO. Do not interpret partial samples as validated workload performance."
+}
