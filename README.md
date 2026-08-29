@@ -99,7 +99,7 @@ build/libs/NeoTab-1.4.0.jar
 
 ## Anonymous Metrics
 
-NeoTab includes optional anonymous usage statistics powered by bStats under the registered NeoTab plugin ID `32846`. Metrics only start when `metrics.enabled` is `true`. bStats can also be disabled globally in `plugins/bStats/config.yml`.
+NeoTab includes optional anonymous usage statistics powered by bStats under the registered NeoTab plugin ID `32846`. Metrics only run when `metrics.enabled` is `true`; changing the setting takes effect with `/tab reload`. bStats can also be disabled globally in `plugins/bStats/config.yml`.
 
 NeoTab-specific charts report only these normalized or boolean values:
 

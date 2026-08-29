@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.logging.Level;
 import org.bstats.bukkit.Metrics;
@@ -23,22 +22,24 @@ public final class NeoTabMetrics {
     private static final String DEFAULT_ANIMATION_STYLE = "rainbow";
 
     private final NeoTab plugin;
-    private final AtomicBoolean startAttempted;
     private volatile MetricsSnapshot snapshot;
     private Metrics metrics;
 
     public NeoTabMetrics(NeoTab plugin) {
         this.plugin = plugin;
-        startAttempted = new AtomicBoolean();
         snapshot = MetricsSnapshot.defaults();
     }
 
-    public void start() {
-        if (!startAttempted.compareAndSet(false, true)) {
+    public synchronized void start() {
+        if (metrics != null) {
             return;
         }
 
         refreshSnapshot();
+        startConfiguredMetrics();
+    }
+
+    private void startConfiguredMetrics() {
         if (!shouldStartMetrics(plugin.getConfig(), BSTATS_PLUGIN_ID)) {
             if (!isMetricsEnabled(plugin.getConfig())) {
                 debug("log.metrics.disabled", java.util.Map.of(), null);
@@ -65,15 +66,21 @@ public final class NeoTabMetrics {
         }
     }
 
-    public void refresh() {
+    public synchronized void refresh() {
         refreshSnapshot();
-        if (metrics != null && !isMetricsEnabled(plugin.getConfig())) {
-            shutdown();
-            debug("log.metrics.stopped-after-reload", java.util.Map.of(), null);
+        switch (reloadAction(isMetricsEnabled(plugin.getConfig()), metrics != null)) {
+            case START -> startConfiguredMetrics();
+            case STOP -> {
+                shutdown();
+                debug("log.metrics.stopped-after-reload", java.util.Map.of(), null);
+            }
+            case NONE -> {
+                // The running state already matches the reloaded configuration.
+            }
         }
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
         Metrics active = metrics;
         metrics = null;
         if (active == null) {
@@ -148,8 +155,21 @@ public final class NeoTabMetrics {
         return isMetricsEnabled(config) && isValidPluginId(pluginId);
     }
 
+    static MetricsReloadAction reloadAction(boolean configuredEnabled, boolean running) {
+        if (configuredEnabled) {
+            return running ? MetricsReloadAction.NONE : MetricsReloadAction.START;
+        }
+        return running ? MetricsReloadAction.STOP : MetricsReloadAction.NONE;
+    }
+
     static boolean isValidPluginId(int pluginId) {
         return pluginId > 0;
+    }
+
+    enum MetricsReloadAction {
+        NONE,
+        START,
+        STOP
     }
 
     static boolean isMetricsEnabled(ConfigurationSection config) {

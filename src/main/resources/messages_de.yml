@@ -228,7 +228,7 @@ log.worldedit.failed: "WorldEdit-Auswahl konnte nicht importiert werden: {error}
 log.metrics.disabled: "Anonyme Metriken sind in der NeoTab-Konfiguration deaktiviert."
 log.metrics.invalid-id: "Anonyme Metriken wurden nicht gestartet, weil die bStats-Plugin-ID noch ungültig ist."
 log.metrics.initialization-failed: "bStats konnte nicht initialisiert werden; NeoTab läuft ohne Metriken weiter."
-log.metrics.stopped-after-reload: "Anonyme Metriken wurden nach einem Reload beendet. Starte den Server neu, um sie wieder zu aktivieren."
+log.metrics.stopped-after-reload: "Anonyme Metriken wurden nach einem Reload beendet. Sie können mit einem weiteren Reload wieder aktiviert werden."
 log.metrics.shutdown-failed: "bStats konnte beim Beenden nicht sauber beendet werden."
 log.metrics.refresh-failed: "Anonyme Metrikwerte konnten nicht aktualisiert werden; datenschutzfreundliche Standardwerte werden verwendet."
 gui.title.main: "<light_purple>NeoTab</light_purple>"

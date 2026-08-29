@@ -84,6 +84,26 @@ final class NeoTabMetricsTest {
     }
 
     @Test
+    void reloadStartsAndStopsMetricsWhenTheConfiguredStateChanges() {
+        assertEquals(
+            NeoTabMetrics.MetricsReloadAction.START,
+            NeoTabMetrics.reloadAction(true, false)
+        );
+        assertEquals(
+            NeoTabMetrics.MetricsReloadAction.STOP,
+            NeoTabMetrics.reloadAction(false, true)
+        );
+        assertEquals(
+            NeoTabMetrics.MetricsReloadAction.NONE,
+            NeoTabMetrics.reloadAction(true, true)
+        );
+        assertEquals(
+            NeoTabMetrics.MetricsReloadAction.NONE,
+            NeoTabMetrics.reloadAction(false, false)
+        );
+    }
+
+    @Test
     void nullAndMalformedConfigValuesFallBackSafely() {
         assertTrue(NeoTabMetrics.isMetricsEnabled(null));
         assertDoesNotThrow(() -> NeoTabMetrics.createSnapshot(null, null, null, null));
