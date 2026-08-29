@@ -159,7 +159,9 @@ public final class RegionCommand {
 
     private boolean handleList(CommandSender sender) {
         List<String> names = regionManager.regions().stream().map(RegionProfile::name).toList();
-        sender.sendMessage(configManager.message("region-list", Map.of("names", names.isEmpty() ? "none" : String.join(", ", names))));
+        sender.sendMessage(configManager.message("region-list", Map.of(
+            "names", names.isEmpty() ? configManager.plainMessage("status.none") : String.join(", ", names)
+        )));
         return true;
     }
 
@@ -177,7 +179,7 @@ public final class RegionCommand {
         RegionProfile profile = region.get();
         sender.sendMessage(configManager.message("region-info", Map.of(
             "name", profile.name(),
-            "enabled", Boolean.toString(profile.enabled()),
+            "enabled", configManager.plainMessage(profile.enabled() ? "status.enabled" : "status.disabled"),
             "priority", Integer.toString(profile.priority()),
             "world", profile.world(),
             "bounds", "[" + profile.minX() + ", " + profile.minY() + ", " + profile.minZ() + "] -> [" + profile.maxX() + ", " + profile.maxY() + ", " + profile.maxZ() + "]",
@@ -348,7 +350,7 @@ public final class RegionCommand {
         if (result.limitExceeded()) {
             sender.sendMessage(configManager.message(messageKey, Map.of(
                 "name", regionName,
-                "reason", result.detail()
+                "reason", regionManager.localizedMutationDetail(result)
             )));
             return;
         }

@@ -26,7 +26,11 @@ public final class RegionWandListener implements Listener {
     public ItemStack createWand() {
         ItemStack itemStack = new ItemStack(Material.BLAZE_ROD);
         ItemMeta itemMeta = itemStack.getItemMeta();
-        itemMeta.setDisplayName(configManager.toLegacy("<gradient:#AA00AA:#BA55D3>NeoTab Region Wand</gradient>", "region-wand.name"));
+        itemMeta.setDisplayName(configManager.messageOrDefault(
+            "item.region-wand.name",
+            "<gradient:#AA00AA:#BA55D3>NeoTab Region Wand</gradient>",
+            java.util.Map.of()
+        ));
         itemMeta.getPersistentDataContainer().set(wandKey, PersistentDataType.BYTE, (byte) 1);
         itemStack.setItemMeta(itemMeta);
         return itemStack;
@@ -44,14 +48,14 @@ public final class RegionWandListener implements Listener {
 
         if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
             selectionManager.setPos1(player.getUniqueId(), event.getClickedBlock());
-            player.sendMessage(configManager.message("region-pos1-set", java.util.Map.of("name", "selection", "position", event.getClickedBlock().getLocation().getBlockX() + " " + event.getClickedBlock().getLocation().getBlockY() + " " + event.getClickedBlock().getLocation().getBlockZ())));
+            player.sendMessage(configManager.message("region-pos1-set", java.util.Map.of("name", configManager.plainMessage("region-selection-name"), "position", event.getClickedBlock().getLocation().getBlockX() + " " + event.getClickedBlock().getLocation().getBlockY() + " " + event.getClickedBlock().getLocation().getBlockZ())));
             event.setCancelled(true);
             return;
         }
 
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             selectionManager.setPos2(player.getUniqueId(), event.getClickedBlock());
-            player.sendMessage(configManager.message("region-pos2-set", java.util.Map.of("name", "selection", "position", event.getClickedBlock().getLocation().getBlockX() + " " + event.getClickedBlock().getLocation().getBlockY() + " " + event.getClickedBlock().getLocation().getBlockZ())));
+            player.sendMessage(configManager.message("region-pos2-set", java.util.Map.of("name", configManager.plainMessage("region-selection-name"), "position", event.getClickedBlock().getLocation().getBlockX() + " " + event.getClickedBlock().getLocation().getBlockY() + " " + event.getClickedBlock().getLocation().getBlockZ())));
             event.setCancelled(true);
         }
     }

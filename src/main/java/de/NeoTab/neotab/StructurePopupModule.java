@@ -15,7 +15,7 @@ public final class StructurePopupModule implements ActionBarModule {
         ConfigManager.StructurePopupActionBarConfig config = configManager.getActionBarConfig().structurePopup();
         if (config.enabled() && !warned) {
             warned = true;
-            plugin.getLogger().warning("NeoTab structure popup is experimental and currently a GUI/config placeholder; no structure lookup task was started.");
+            configManager.log(java.util.logging.Level.WARNING, "log.structure.experimental");
         }
     }
 

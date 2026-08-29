@@ -1,4 +1,5 @@
 server-name: "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>"
+language: "en"              # en/english or de/german/deutsch
 metrics:
   # Anonymous usage statistics powered by bStats.
   # bStats can also be disabled globally in plugins/bStats/config.yml.
@@ -104,40 +105,6 @@ extras:
         - "New here? Ask the team for help!"
         - "Thanks for playing on this server!"
         - "Have a cozy session :)"
-      inactive-message-packs:
-        german:
-          enabled: false
-          messages:
-            - "Trink genug Wasser! <3"
-            - "Bleib hydriert!"
-            - "Mach kurz Pause :)"
-            - "Denk ans Strecken!"
-            - "Vergiss nicht zu blinzeln :)"
-            - "Viel Spaß beim Spielen!"
-            - "Viel Glück und viel Spaß!"
-            - "Sei nett zu anderen Spielern <3"
-            - "Schön, dass du da bist!"
-            - "Brauchst du Hilfe? Nutze /help"
-            - "Join unserem Discord mit /discord"
-            - "Bug gefunden? Sag dem Team Bescheid!"
-            - "Lad deine Freunde ein :)"
-            - "Erkunde, baue, überlebe!"
-            - "Dein Abenteuer beginnt hier!"
-            - "Bleib korrekt!"
-            - "Immer schön weiter craften!"
-            - "Pass auf dich auf!"
-            - "Grab nicht direkt nach unten!"
-            - "Diamanten warten auf dich!"
-            - "Zusammen geht's leichter!"
-            - "Respektiere andere Spieler."
-            - "Ein netter Chat macht den Server besser."
-            - "Pass auf dein Inventar auf!"
-            - "Vergiss nicht, dein Zuhause zu setzen."
-            - "Schau dir die Serverregeln an."
-            - "Nutze /spawn, um sicher zurückzukommen."
-            - "Neu hier? Frag einfach das Team!"
-            - "Danke, dass du auf diesem Server spielst!"
-            - "Hab eine entspannte Session :)"
     biome-popup:
       enabled: false
       check-interval-ticks: 40

@@ -531,7 +531,7 @@ public final class TabUpdater {
         }
 
         if (xmxWarned.compareAndSet(false, true)) {
-            plugin.getLogger().warning("No -Xmx value found; falling back to Runtime.maxMemory().");
+            configManager.log(java.util.logging.Level.WARNING, "log.tab.no-xmx");
         }
         return Runtime.getRuntime().maxMemory() / 0x100000L;
     }
@@ -608,7 +608,9 @@ public final class TabUpdater {
                 : configManager.deserialize(decoratedName, "luckperms-player-list-name");
         } catch (RuntimeException ex) {
             if (luckPermsLookupWarned.compareAndSet(false, true)) {
-                plugin.getLogger().warning("LuckPerms player metadata could not be read; using the vanilla name: " + ex.getMessage());
+                configManager.log(java.util.logging.Level.WARNING, "log.tab.luckperms-metadata-failed", java.util.Map.of(
+                    "error", String.valueOf(ex.getMessage())
+                ));
             }
             return Component.text(player.getName());
         }

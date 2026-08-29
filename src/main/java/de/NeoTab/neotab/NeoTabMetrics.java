@@ -41,9 +41,9 @@ public final class NeoTabMetrics {
         refreshSnapshot();
         if (!shouldStartMetrics(plugin.getConfig(), BSTATS_PLUGIN_ID)) {
             if (!isMetricsEnabled(plugin.getConfig())) {
-                debug("Anonymous metrics are disabled in NeoTab's config.", null);
+                debug("log.metrics.disabled", java.util.Map.of(), null);
             } else {
-                debug("Anonymous metrics were not started because the bStats plugin ID placeholder is still invalid.", null);
+                debug("log.metrics.invalid-id", java.util.Map.of(), null);
             }
             return;
         }
@@ -61,7 +61,7 @@ public final class NeoTabMetrics {
                     // The original initialization error is more useful in debug mode.
                 }
             }
-            debug("bStats initialization failed; NeoTab will continue without metrics.", error);
+            debug("log.metrics.initialization-failed", java.util.Map.of(), error);
         }
     }
 
@@ -69,7 +69,7 @@ public final class NeoTabMetrics {
         refreshSnapshot();
         if (metrics != null && !isMetricsEnabled(plugin.getConfig())) {
             shutdown();
-            debug("Anonymous metrics were stopped after a config reload. Restart the server to enable them again.", null);
+            debug("log.metrics.stopped-after-reload", java.util.Map.of(), null);
         }
     }
 
@@ -82,7 +82,7 @@ public final class NeoTabMetrics {
         try {
             active.shutdown();
         } catch (Throwable error) {
-            debug("bStats shutdown failed.", error);
+            debug("log.metrics.shutdown-failed", java.util.Map.of(), error);
         }
     }
 
@@ -129,20 +129,16 @@ public final class NeoTabMetrics {
             );
         } catch (Throwable error) {
             snapshot = MetricsSnapshot.defaults();
-            debug("Could not refresh anonymous metrics values; privacy-safe defaults will be used.", error);
+            debug("log.metrics.refresh-failed", java.util.Map.of(), error);
         }
     }
 
-    private void debug(String message, Throwable error) {
+    private void debug(String key, java.util.Map<String, String> placeholders, Throwable error) {
         try {
             if (!isDebugEnabled(plugin.getConfig())) {
                 return;
             }
-            if (error == null) {
-                plugin.getLogger().fine(message);
-            } else {
-                plugin.getLogger().log(Level.FINE, message, error);
-            }
+            plugin.getConfigManager().log(Level.FINE, key, placeholders, error);
         } catch (Throwable ignored) {
             // Metrics diagnostics must never interfere with the plugin lifecycle.
         }
@@ -168,14 +164,8 @@ public final class NeoTabMetrics {
         if (!(rawLanguage instanceof String language) || language.isBlank()) {
             return "other";
         }
-        String normalized = language.trim().toLowerCase(Locale.ROOT).replace('_', '-');
-        if (normalized.equals("de") || normalized.startsWith("de-")) {
-            return "de";
-        }
-        if (normalized.equals("en") || normalized.startsWith("en-")) {
-            return "en";
-        }
-        return "other";
+        ConfigManager.Language parsed = ConfigManager.Language.parse(language);
+        return parsed == null ? "other" : parsed.id();
     }
 
     static String normalizePlatform(String serverName, String serverVersion) {

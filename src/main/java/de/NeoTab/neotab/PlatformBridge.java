@@ -184,10 +184,9 @@ public final class PlatformBridge {
         String causeText = cause == null
             ? "no compatible transport was found"
             : cause.getClass().getSimpleName() + ": " + cause.getMessage();
-        plugin.getLogger().warning(
-            "ActionBar output is unavailable on this server implementation; "
-                + "other NeoTab features remain active. Cause: " + causeText
-        );
+        plugin.getConfigManager().log(java.util.logging.Level.WARNING, "log.platform.actionbar-unavailable", java.util.Map.of(
+            "cause", causeText
+        ));
     }
 
     private static Field findConnectionField(Class<?> handleClass) throws NoSuchFieldException {

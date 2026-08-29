@@ -24,7 +24,7 @@ _This is a default-configuration comparison, not a perfectly feature-matched mic
 | `1.3.1` | Stable patch | `1.20.6+` target | Fixes a delayed scoreboard join race, makes equal-priority ActionBar selection deterministic, and hides unauthorized ActionBar tab completions. |
 | `1.3.2` | Stable patch | `1.20.6+` target | Hardens lifecycle and permission checks, improves tab/scoreboard coexistence, spatially indexes expensive lookups, modernizes Paper APIs, and moves YAML disk writes off the server thread. |
 | `1.3.3` | Stable patch | `1.20.6+` target | Re-evaluates temporary external scoreboard ownership during normal ticks so NeoTab resumes automatically after another sidebar plugin releases control. |
-| `1.4.0` | Stable | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, cross-platform animation fixes, and extensive runtime/performance hardening. |
+| `1.4.0` | Stable | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, English/German runtime localization, cross-platform animation fixes, and extensive runtime/performance hardening. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
 
@@ -57,6 +57,7 @@ Version docs:
 - Central ActionBar priority system for timer, stopwatch, popups, clock, random messages, and other Extras modules
 - ActionBar Stopwatch, Clock, Welcome message, Random Messages, Biome Popup, Achievements, and Nearest Player modules
 - Region Profiles for automatic tab and scoreboard profile switching inside configured cuboid regions
+- English (default) and German localization for commands, GUI, ActionBar defaults, and NeoTab console output
 - Shared active color palette for tab, scoreboard, chat messages, and timer output
 - Spigot `1.20.6` API compile target with Java 21 bytecode and a shared Paper/Spigot/CraftBukkit JAR
 
@@ -67,6 +68,22 @@ Version docs:
 3. Restart the server.
 4. Edit `plugins/NeoTab/config.yml`.
 5. Use `/tab reload` after config changes.
+
+## Language
+
+NeoTab uses English by default and supports German. The selected language is saved in `plugins/NeoTab/config.yml` and applies to command messages, all NeoTab GUIs, built-in ActionBar defaults, and NeoTab console output.
+
+```yaml
+language: "en" # en/english or de/german/deutsch
+```
+
+```text
+/tab language english
+/tab language german
+/tab lang de
+```
+
+The main `/tab gui` menu contains a language button as well. The `neotab.language` permission is required. Translations can be edited in `plugins/NeoTab/messages.yml` (English) and `plugins/NeoTab/messages_de.yml` (German); custom ActionBar/config text remains unchanged when switching languages. Upgraded configurations that explicitly enabled the old `inactive-message-packs.german` list continue to use that list as a legacy override.
 
 ## Build
 
@@ -191,6 +208,7 @@ The GUI has three categories:
 - `Tab`: change the tab name, select animation styles, and set color presets or custom hex colors.
 - `Scoreboard`: toggle the sidebar, edit lines 1-15, pick line presets, save/load/delete presets, and set the scoreboard title animation.
 - `Extras`: set tab and scoreboard update intervals independently and open ActionBar Extras.
+- `Language`: switch between English and German.
 - `ActionBar`: control Timer, Stopwatch, Clock, Welcome, Random Messages, Biome Popup, Achievements, and Performance Notice modules.
 
 GUI items cannot be taken or moved.
@@ -288,7 +306,7 @@ Random Messages can also be managed in-game:
 /tab randommessages clear
 ```
 
-The default config ships with an active English message list. A German list is included under an inactive message pack for a later language/profile workflow.
+The default config ships with an active English message list. When the configured random-message list still matches NeoTab's defaults, switching to German selects the translated default list automatically; custom lists remain unchanged.
 
 Structure Popup is intentionally a config/GUI placeholder in this release. Full structure detection is planned, but no heavy or unsafe structure lookup runs yet.
 

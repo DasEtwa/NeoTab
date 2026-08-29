@@ -64,7 +64,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
         String subcommand = args[0].toLowerCase(Locale.ROOT);
         if (!commandAllowedDuringReload(reloadInProgress.get(), subcommand)) {
-            sender.sendMessage("[NeoTab] A reload is in progress; configuration commands are temporarily unavailable.");
+            sender.sendMessage(configManager.message("reload-in-progress"));
             return true;
         }
         switch (subcommand) {
@@ -75,7 +75,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 }
 
                 if (!beginReload(reloadInProgress)) {
-                    sender.sendMessage("[NeoTab] A reload is already in progress.");
+                    sender.sendMessage(configManager.message("reload-already-in-progress"));
                     return true;
                 }
                 // Close every mutation surface before capturing the writer barrier. All NeoTab
@@ -84,6 +84,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 chatInputManager.cancelAll(true);
                 configManager.flushWritesAsync().whenComplete((ignored, failure) -> scheduleReloadCompletion(sender, failure));
                 return true;
+            }
+            case "language", "lang" -> {
+                return handleLanguage(sender, args);
             }
             case "setname" -> {
                 if (!sender.hasPermission("neotab.setname")) {
@@ -148,19 +151,19 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 return handleClock(sender, args);
             }
             case "welcome" -> {
-                return handleActionBarToggle(sender, args, "welcome", "neotab.extras.welcome", "Welcome");
+                return handleActionBarToggle(sender, args, "welcome", "neotab.extras.welcome", configManager.plainMessage("module.welcome"));
             }
             case "randommessages", "randommessage" -> {
                 return handleRandomMessages(sender, args);
             }
             case "biomepopup" -> {
-                return handleActionBarToggle(sender, args, "biome-popup", "neotab.extras.biome", "Biome Popup");
+                return handleActionBarToggle(sender, args, "biome-popup", "neotab.extras.biome", configManager.plainMessage("module.biome-popup"));
             }
             case "nearestplayer" -> {
-                return handleActionBarToggle(sender, args, "nearest-player", "neotab.extras.nearestplayer", "Nearest Player");
+                return handleActionBarToggle(sender, args, "nearest-player", "neotab.extras.nearestplayer", configManager.plainMessage("module.nearest-player"));
             }
             case "achievements" -> {
-                return handleActionBarToggle(sender, args, "achievements", "neotab.extras.achievements", "Achievements");
+                return handleActionBarToggle(sender, args, "achievements", "neotab.extras.achievements", configManager.plainMessage("module.achievements"));
             }
             default -> {
                 sender.sendMessage(configManager.message("command-unknown"));
@@ -176,6 +179,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String prefix = args[0].toLowerCase(Locale.ROOT);
             addIfAllowed(completions, "reload", "neotab.reload", prefix, sender);
+            addIfAllowed(completions, "language", "neotab.language", prefix, sender);
             addIfAllowed(completions, "setname", "neotab.setname", prefix, sender);
             addIfAllowed(completions, "style", "neotab.style", prefix, sender);
             addIfAllowed(completions, "performance", "neotab.performance", prefix, sender);
@@ -243,6 +247,16 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             completeTimer(sender, completions, args);
         }
 
+        if (args.length == 2 && (args[0].equalsIgnoreCase("language") || args[0].equalsIgnoreCase("lang"))
+            && sender.hasPermission("neotab.language")) {
+            String prefix = args[1].toLowerCase(Locale.ROOT);
+            for (String option : List.of("english", "german")) {
+                if (option.startsWith(prefix)) {
+                    completions.add(option);
+                }
+            }
+        }
+
         if ((args[0].equalsIgnoreCase("region") || args[0].equalsIgnoreCase("regions")) && sender.hasPermission("neotab.region")) {
             completions.addAll(regionCommand.complete(sender, args));
         }
@@ -267,6 +281,29 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
         }
 
         return completions;
+    }
+
+    private boolean handleLanguage(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("neotab.language")) {
+            sender.sendMessage(configManager.message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(configManager.message("language-usage"));
+            return true;
+        }
+
+        ConfigManager.Language selected = ConfigManager.Language.parse(args[1]);
+        if (selected == null) {
+            sender.sendMessage(configManager.message("language-invalid"));
+            return true;
+        }
+
+        configManager.setLanguage(selected);
+        sender.sendMessage(configManager.message("language-changed", Map.of(
+            "language", configManager.languageDisplayName(selected)
+        )));
+        return true;
     }
 
     private boolean handleColor(CommandSender sender, String[] args) {
@@ -504,7 +541,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 List<String> presets = scoreboardService.listPresets();
-                String names = presets.isEmpty() ? "none" : String.join(", ", presets);
+                String names = presets.isEmpty() ? configManager.plainMessage("status.none") : String.join(", ", presets);
                 sender.sendMessage(configManager.message("scoreboard-preset-list", Map.of("names", names)));
                 return true;
             }
@@ -644,11 +681,11 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
         switch (args[1].toLowerCase(Locale.ROOT)) {
             case "on" -> {
-                setActionBarModule(sender, "clock", true, "Clock");
+                setActionBarModule(sender, "clock", true, configManager.plainMessage("module.clock"));
                 return true;
             }
             case "off" -> {
-                setActionBarModule(sender, "clock", false, "Clock");
+                setActionBarModule(sender, "clock", false, configManager.plainMessage("module.clock"));
                 return true;
             }
             case "timezone" -> {
@@ -730,11 +767,11 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
         switch (args[1].toLowerCase(Locale.ROOT)) {
             case "on" -> {
-                setActionBarModule(sender, "random-messages", true, "Random Messages");
+                setActionBarModule(sender, "random-messages", true, configManager.plainMessage("module.random-messages"));
                 return true;
             }
             case "off" -> {
-                setActionBarModule(sender, "random-messages", false, "Random Messages");
+                setActionBarModule(sender, "random-messages", false, configManager.plainMessage("module.random-messages"));
                 return true;
             }
             case "list" -> {
@@ -1087,15 +1124,15 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             Bukkit.getScheduler().runTask(plugin, () -> finishReload(sender, failure));
         } catch (RuntimeException schedulingFailure) {
             reloadInProgress.set(false);
-            plugin.getLogger().log(Level.SEVERE, "Could not schedule the NeoTab reload completion task.", schedulingFailure);
+            configManager.log(Level.SEVERE, "log.reload.schedule-failed", Map.of(), schedulingFailure);
         }
     }
 
     private void finishReload(CommandSender sender, Throwable flushFailure) {
         try {
             if (flushFailure != null) {
-                plugin.getLogger().log(Level.SEVERE, "NeoTab reload aborted because pending configuration writes could not be flushed.", flushFailure);
-                sender.sendMessage("[NeoTab] Reload failed because pending configuration writes could not be flushed. See console.");
+                configManager.log(Level.SEVERE, "log.reload.flush-failed", Map.of(), flushFailure);
+                sender.sendMessage(configManager.message("reload-failed-flush"));
                 return;
             }
 
@@ -1109,8 +1146,8 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             plugin.restartActionBarExtras();
             sender.sendMessage(configManager.message("reload-success"));
         } catch (RuntimeException ex) {
-            plugin.getLogger().log(Level.SEVERE, "NeoTab reload failed.", ex);
-            sender.sendMessage("[NeoTab] Reload failed. See console for details.");
+            configManager.log(Level.SEVERE, "log.reload.failed", Map.of(), ex);
+            sender.sendMessage(configManager.message("reload-failed"));
         } finally {
             reloadInProgress.set(false);
         }

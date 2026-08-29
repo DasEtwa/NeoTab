@@ -17,6 +17,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
 import java.util.logging.Logger;
 
 /** Serializes and coalesces YAML writes without blocking the server thread on disk I/O. */
@@ -28,6 +29,7 @@ public final class AsyncYamlWriter implements AutoCloseable {
     private final AtomicWriteOperation atomicWriteOperation;
     private final Map<Path, PendingWrite> pendingWrites = new LinkedHashMap<>();
     private final Map<Path, WriteFailure> writeFailures = new LinkedHashMap<>();
+    private volatile BiFunction<String, Map<String, String>, String> messageResolver;
 
     private long submittedSequence;
     private boolean drainScheduled;
@@ -45,6 +47,10 @@ public final class AsyncYamlWriter implements AutoCloseable {
             thread.setDaemon(true);
             return thread;
         });
+    }
+
+    public void setMessageResolver(BiFunction<String, Map<String, String>, String> resolver) {
+        messageResolver = resolver;
     }
 
     public synchronized void write(Path target, String contents) {
@@ -93,11 +99,15 @@ public final class AsyncYamlWriter implements AutoCloseable {
             flushAsync().get(BLOCKING_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            logger.warning("Interrupted while flushing NeoTab YAML files.");
+            warning("log.yaml.flush-interrupted", "Interrupted while flushing NeoTab YAML files.", Map.of());
         } catch (ExecutionException ex) {
-            logger.warning("Could not flush NeoTab YAML files: " + failureMessage(ex.getCause()));
+            warning("log.yaml.flush-failed", "Could not flush NeoTab YAML files: " + failureMessage(ex.getCause()), Map.of(
+                "error", failureMessage(ex.getCause())
+            ));
         } catch (TimeoutException ex) {
-            logger.warning("Timed out after " + BLOCKING_TIMEOUT_SECONDS + " seconds while flushing NeoTab YAML files.");
+            warning("log.yaml.flush-timeout", "Timed out after " + BLOCKING_TIMEOUT_SECONDS + " seconds while flushing NeoTab YAML files.", Map.of(
+                "seconds", String.valueOf(BLOCKING_TIMEOUT_SECONDS)
+            ));
         }
     }
 
@@ -124,31 +134,33 @@ public final class AsyncYamlWriter implements AutoCloseable {
             finalFlush.get(remainingNanos(deadline), TimeUnit.NANOSECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            logger.warning("Interrupted while shutting down the NeoTab YAML writer; queued writes continue in the background.");
+            warning("log.yaml.shutdown-interrupted", "Interrupted while shutting down the NeoTab YAML writer; queued writes continue in the background.", Map.of());
             failureLogged = true;
         } catch (ExecutionException ex) {
-            logger.warning("Could not persist all NeoTab YAML files during shutdown: " + failureMessage(ex.getCause()));
+            warning("log.yaml.shutdown-failed", "Could not persist all NeoTab YAML files during shutdown: " + failureMessage(ex.getCause()), Map.of(
+                "error", failureMessage(ex.getCause())
+            ));
             failureLogged = true;
         } catch (TimeoutException ex) {
-            logger.warning(
-                "NeoTab YAML writer shutdown exceeded " + BLOCKING_TIMEOUT_SECONDS
-                    + " seconds; orderly queued writes continue in the background."
-            );
+            warning("log.yaml.shutdown-timeout", "NeoTab YAML writer shutdown exceeded " + BLOCKING_TIMEOUT_SECONDS
+                + " seconds; orderly queued writes continue in the background.", Map.of(
+                    "seconds", String.valueOf(BLOCKING_TIMEOUT_SECONDS)
+                ));
             failureLogged = true;
         }
 
         if (!Thread.currentThread().isInterrupted()) {
             try {
                 if (!executor.awaitTermination(remainingNanos(deadline), TimeUnit.NANOSECONDS) && !failureLogged) {
-                    logger.warning(
-                        "NeoTab YAML writer shutdown exceeded " + BLOCKING_TIMEOUT_SECONDS
-                            + " seconds; orderly queued writes continue in the background."
-                    );
+                    warning("log.yaml.shutdown-timeout", "NeoTab YAML writer shutdown exceeded " + BLOCKING_TIMEOUT_SECONDS
+                        + " seconds; orderly queued writes continue in the background.", Map.of(
+                            "seconds", String.valueOf(BLOCKING_TIMEOUT_SECONDS)
+                        ));
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 if (!failureLogged) {
-                    logger.warning("Interrupted while shutting down the NeoTab YAML writer; queued writes continue in the background.");
+                    warning("log.yaml.shutdown-interrupted", "Interrupted while shutting down the NeoTab YAML writer; queued writes continue in the background.", Map.of());
                 }
             }
         }
@@ -220,7 +232,11 @@ public final class AsyncYamlWriter implements AutoCloseable {
                     synchronized (this) {
                         writeFailures.put(target, new WriteFailure(pendingWrite.sequence(), ex));
                     }
-                    logger.warning("Could not save " + target.getFileName() + ": " + ex.getMessage());
+                    String error = String.valueOf(ex.getMessage());
+                    warning("log.yaml.save-failed", "Could not save " + target.getFileName() + ": " + error, Map.of(
+                        "file", target.getFileName().toString(),
+                        "error", error
+                    ));
                 }
             }
         }
@@ -255,6 +271,19 @@ public final class AsyncYamlWriter implements AutoCloseable {
             return "unknown failure";
         }
         return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+    }
+
+    private void warning(String key, String fallback, Map<String, String> placeholders) {
+        String message = fallback;
+        BiFunction<String, Map<String, String>, String> resolver = messageResolver;
+        if (resolver != null) {
+            try {
+                message = resolver.apply(key, placeholders);
+            } catch (RuntimeException ignored) {
+                // Keep the storage warning visible even if localization is unavailable during shutdown.
+            }
+        }
+        logger.warning(message);
     }
 
     @FunctionalInterface

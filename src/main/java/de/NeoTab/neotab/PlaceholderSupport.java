@@ -21,7 +21,7 @@ public final class PlaceholderSupport {
         boolean wasAvailable = available;
         available = Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI");
         if (available && !wasAvailable && availabilityLogged.compareAndSet(false, true)) {
-            plugin.getLogger().info("PlaceholderAPI support enabled.");
+            plugin.getConfigManager().log(java.util.logging.Level.INFO, "log.placeholderapi.enabled");
         }
     }
 
@@ -67,7 +67,9 @@ public final class PlaceholderSupport {
             return PlaceholderAPI.setPlaceholders(player, input);
         } catch (RuntimeException ex) {
             if (failureWarned.compareAndSet(false, true)) {
-                plugin.getLogger().warning("PlaceholderAPI failed to parse placeholders: " + ex.getMessage());
+                plugin.getConfigManager().log(java.util.logging.Level.WARNING, "log.placeholderapi.parse-failed", java.util.Map.of(
+                    "error", String.valueOf(ex.getMessage())
+                ));
             }
             return input;
         }

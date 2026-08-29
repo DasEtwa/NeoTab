@@ -390,7 +390,9 @@ public final class ScoreboardService implements Listener {
         );
         if (claimAction == ScoreboardClaimAction.WAIT_FOR_EXTERNAL_OWNER) {
             if (externalScoreboardOwners.add(uuid)) {
-                plugin.getLogger().fine("Skipping NeoTab scoreboard for " + player.getName() + " because their current scoreboard is managed externally.");
+                plugin.getConfigManager().log(java.util.logging.Level.FINE, "log.scoreboard.external-skip", java.util.Map.of(
+                    "player", player.getName()
+                ));
             }
             return;
         }
@@ -401,7 +403,9 @@ public final class ScoreboardService implements Listener {
             sessions.put(uuid, session);
         }
         if (resumed) {
-            plugin.getLogger().fine("Resuming NeoTab scoreboard for " + player.getName() + " after external ownership ended.");
+            plugin.getConfigManager().log(java.util.logging.Level.FINE, "log.scoreboard.external-resume", java.util.Map.of(
+                "player", player.getName()
+            ));
         }
         ConfigManager.ScoreboardProfile scoreboardProfile = activeScoreboardProfile(player);
 
@@ -822,14 +826,9 @@ public final class ScoreboardService implements Listener {
             return;
         }
 
-        plugin.getLogger().warning(
-            "[NeoTab] Warning: Scoreboard update interval is set to "
-                + scoreboardConfig.updateIntervalTicks()
-                + " ticks.\n"
-                + "This is allowed and can provide smoother animations on small servers.\n"
-                + "On larger servers, especially with PlaceholderAPI or many dynamic lines,\n"
-                + "this may cause high CPU usage on the main thread. Recommended for larger servers: 10-20 ticks."
-        );
+        plugin.getConfigManager().log(java.util.logging.Level.WARNING, "log.scoreboard.aggressive-interval", java.util.Map.of(
+            "ticks", String.valueOf(scoreboardConfig.updateIntervalTicks())
+        ));
     }
 
     private static int countDynamicLines(List<String> lines) {

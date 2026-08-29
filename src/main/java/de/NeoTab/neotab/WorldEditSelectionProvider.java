@@ -66,13 +66,19 @@ public final class WorldEditSelectionProvider {
                 readBlockCoordinate(maximum, "getBlockZ")
             ));
         } catch (InvocationTargetException ex) {
-            plugin.getLogger().fine("WorldEdit selection import failed: " + ex.getTargetException().getMessage());
+            plugin.getConfigManager().log(java.util.logging.Level.FINE, "log.worldedit.failed-target", java.util.Map.of(
+                "error", String.valueOf(ex.getTargetException().getMessage())
+            ));
             return Optional.empty();
         } catch (ReflectiveOperationException ex) {
-            plugin.getLogger().fine("WorldEdit selection import unavailable: " + ex.getMessage());
+            plugin.getConfigManager().log(java.util.logging.Level.FINE, "log.worldedit.unavailable", java.util.Map.of(
+                "error", String.valueOf(ex.getMessage())
+            ));
             return Optional.empty();
         } catch (RuntimeException ex) {
-            plugin.getLogger().fine("WorldEdit selection import failed: " + ex.getMessage());
+            plugin.getConfigManager().log(java.util.logging.Level.FINE, "log.worldedit.failed", java.util.Map.of(
+                "error", String.valueOf(ex.getMessage())
+            ));
             return Optional.empty();
         }
     }

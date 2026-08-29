@@ -50,7 +50,9 @@ public final class RegionProfileGui implements Listener {
         int maxPage = Math.max(0, (regions.size() - 1) / PAGE_SIZE);
         int resolvedPage = Math.max(0, Math.min(page, maxPage));
         GuiHolder holder = new GuiHolder(MenuType.LIST, null, resolvedPage);
-        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - Regions");
+        Inventory inventory = Bukkit.createInventory(holder, 54, configManager.messageOrDefault(
+            "gui.region.title.list", "NeoTab - Regions", Map.of()
+        ));
         holder.setInventory(inventory);
 
         int start = resolvedPage * PAGE_SIZE;
@@ -60,20 +62,24 @@ public final class RegionProfileGui implements Listener {
         }
 
         if (regions.isEmpty()) {
-            inventory.setItem(22, item(Material.PAPER, "No regions", "Create one from your wand selection."));
+            inventory.setItem(22, guiItem(Material.PAPER, "region.no-regions", "No regions", Map.of(), "Create one from your wand selection."));
         }
 
-        inventory.setItem(45, item(Material.LIME_DYE, "Create from Wand Selection", "Uses your temporary NeoTab wand selection."));
+        inventory.setItem(45, guiItem(Material.LIME_DYE, "region.create-wand", "Create from Wand Selection", Map.of(), "Uses your temporary NeoTab wand selection."));
         if (regionManager.isWorldEditAvailable()) {
-            inventory.setItem(47, item(Material.STRUCTURE_BLOCK, "Import WorldEdit Selection", "Create or update a region from your current WorldEdit selection."));
+            inventory.setItem(47, guiItem(Material.STRUCTURE_BLOCK, "region.import-worldedit", "Import WorldEdit Selection", Map.of(), "Create or update a region from your current WorldEdit selection."));
         }
         if (resolvedPage > 0) {
-            inventory.setItem(48, item(Material.ARROW, "Previous Page", "Page " + resolvedPage + " of " + (maxPage + 1) + "."));
+            inventory.setItem(48, guiItem(Material.ARROW, "region.previous", "Previous Page", Map.of(
+                "page", Integer.toString(resolvedPage), "pages", Integer.toString(maxPage + 1)
+            ), "Page " + resolvedPage + " of " + (maxPage + 1) + "."));
         }
         if (resolvedPage < maxPage) {
-            inventory.setItem(50, item(Material.ARROW, "Next Page", "Page " + (resolvedPage + 2) + " of " + (maxPage + 1) + "."));
+            inventory.setItem(50, guiItem(Material.ARROW, "region.next", "Next Page", Map.of(
+                "page", Integer.toString(resolvedPage + 2), "pages", Integer.toString(maxPage + 1)
+            ), "Page " + (resolvedPage + 2) + " of " + (maxPage + 1) + "."));
         }
-        inventory.setItem(53, item(Material.BARRIER, "Close", "Close this menu."));
+        inventory.setItem(53, guiItem(Material.BARRIER, "region.close", "Close", Map.of(), "Close this menu."));
         player.openInventory(inventory);
     }
 
@@ -87,31 +93,37 @@ public final class RegionProfileGui implements Listener {
 
         RegionProfile region = optionalRegion.get();
         GuiHolder holder = new GuiHolder(MenuType.EDIT, region.name(), 0);
-        Inventory inventory = Bukkit.createInventory(holder, 54, "NeoTab - " + region.name());
+        Inventory inventory = Bukkit.createInventory(holder, 54, configManager.messageOrDefault(
+            "gui.region.title.edit", "NeoTab - " + region.name(), Map.of("name", region.name())
+        ));
         holder.setInventory(inventory);
 
         inventory.setItem(4, regionItem(region));
-        inventory.setItem(10, item(Material.LODESTONE, "Set Pos1 to My Location", locationLore(player.getLocation())));
-        inventory.setItem(12, item(Material.RESPAWN_ANCHOR, "Set Pos2 to My Location", locationLore(player.getLocation())));
-        inventory.setItem(14, item(Material.LIME_DYE, "Increase Priority", "Current: " + region.priority()));
-        inventory.setItem(16, item(Material.RED_DYE, "Decrease Priority", "Current: " + region.priority()));
-        inventory.setItem(28, item(Material.NAME_TAG, "Change Tab Profile", "Current: " + region.tabProfile()));
-        inventory.setItem(30, item(Material.MAP, "Change Scoreboard Profile", "Current: " + region.scoreboardProfile()));
-        inventory.setItem(32, item(region.enabled() ? Material.LEVER : Material.REDSTONE_TORCH, "Toggle Enabled", "Current: " + (region.enabled() ? "enabled" : "disabled")));
-        inventory.setItem(34, item(Material.TNT, "Delete Region", "Requires confirmation."));
+        String currentLocation = formatLocation(player.getLocation());
+        inventory.setItem(10, guiItem(Material.LODESTONE, "region.pos1", "Set Pos1 to My Location", Map.of("current", currentLocation), "Current: " + currentLocation));
+        inventory.setItem(12, guiItem(Material.RESPAWN_ANCHOR, "region.pos2", "Set Pos2 to My Location", Map.of("current", currentLocation), "Current: " + currentLocation));
+        inventory.setItem(14, guiItem(Material.LIME_DYE, "region.increase-priority", "Increase Priority", Map.of("current", Integer.toString(region.priority())), "Current: " + region.priority()));
+        inventory.setItem(16, guiItem(Material.RED_DYE, "region.decrease-priority", "Decrease Priority", Map.of("current", Integer.toString(region.priority())), "Current: " + region.priority()));
+        inventory.setItem(28, guiItem(Material.NAME_TAG, "region.tab-profile", "Change Tab Profile", Map.of("current", region.tabProfile()), "Current: " + region.tabProfile()));
+        inventory.setItem(30, guiItem(Material.MAP, "region.scoreboard-profile", "Change Scoreboard Profile", Map.of("current", region.scoreboardProfile()), "Current: " + region.scoreboardProfile()));
+        String enabledStatus = configManager.plainMessage(region.enabled() ? "status.enabled" : "status.disabled");
+        inventory.setItem(32, guiItem(region.enabled() ? Material.LEVER : Material.REDSTONE_TORCH, "region.toggle", "Toggle Enabled", Map.of("status", enabledStatus), "Current: " + enabledStatus));
+        inventory.setItem(34, guiItem(Material.TNT, "region.delete", "Delete Region", Map.of(), "Requires confirmation."));
         if (regionManager.isWorldEditAvailable()) {
-            inventory.setItem(40, item(Material.STRUCTURE_BLOCK, "Import WorldEdit Selection", "Replace this region's bounds from WorldEdit."));
+            inventory.setItem(40, guiItem(Material.STRUCTURE_BLOCK, "region.import-worldedit-edit", "Import WorldEdit Selection", Map.of(), "Replace this region's bounds from WorldEdit."));
         }
-        inventory.setItem(49, item(Material.ARROW, "Back", "Return to the region list."));
+        inventory.setItem(49, guiItem(Material.ARROW, "region.back", "Back", Map.of(), "Return to the region list."));
         player.openInventory(inventory);
     }
 
     private void openDeleteConfirm(Player player, String regionName) {
         GuiHolder holder = new GuiHolder(MenuType.DELETE_CONFIRM, regionName, 0);
-        Inventory inventory = Bukkit.createInventory(holder, 27, "Delete " + regionName + "?");
+        Inventory inventory = Bukkit.createInventory(holder, 27, configManager.messageOrDefault(
+            "gui.region.title.delete", "Delete " + regionName + "?", Map.of("name", regionName)
+        ));
         holder.setInventory(inventory);
-        inventory.setItem(11, item(Material.LIME_DYE, "Confirm Delete", "Permanently delete region " + regionName + "."));
-        inventory.setItem(15, item(Material.BARRIER, "Cancel", "Keep this region."));
+        inventory.setItem(11, guiItem(Material.LIME_DYE, "region.confirm-delete", "Confirm Delete", Map.of("name", regionName), "Permanently delete region " + regionName + "."));
+        inventory.setItem(15, guiItem(Material.BARRIER, "region.cancel", "Cancel", Map.of(), "Keep this region."));
         player.openInventory(inventory);
     }
 
@@ -399,7 +411,7 @@ public final class RegionProfileGui implements Listener {
         if (result.limitExceeded()) {
             player.sendMessage(configManager.message(messageKey, Map.of(
                 "name", regionName,
-                "reason", result.detail()
+                "reason", regionManager.localizedMutationDetail(result)
             )));
             return;
         }
@@ -433,9 +445,19 @@ public final class RegionProfileGui implements Listener {
     }
 
     private ItemStack regionItem(RegionProfile region) {
-        return item(
+        return guiItem(
             region.enabled() ? Material.FILLED_MAP : Material.MAP,
+            "region.details",
             region.name(),
+            Map.of(
+                "name", region.name(),
+                "priority", Integer.toString(region.priority()),
+                "world", region.world(),
+                "bounds", "[" + region.minX() + ", " + region.minY() + ", " + region.minZ() + "] -> [" + region.maxX() + ", " + region.maxY() + ", " + region.maxZ() + "]",
+                "tab", region.tabProfile(),
+                "scoreboard", region.scoreboardProfile(),
+                "enabled", configManager.plainMessage(region.enabled() ? "status.enabled" : "status.disabled")
+            ),
             "Priority: " + region.priority(),
             "World: " + region.world(),
             "Bounds: [" + region.minX() + ", " + region.minY() + ", " + region.minZ() + "] -> [" + region.maxX() + ", " + region.maxY() + ", " + region.maxZ() + "]",
@@ -445,26 +467,37 @@ public final class RegionProfileGui implements Listener {
         );
     }
 
-    private ItemStack item(Material material, String name, String... lore) {
+    private ItemStack guiItem(Material material, String key, String fallbackName, Map<String, String> placeholders, String... fallbackLore) {
+        String name = configManager.messageOrDefault(
+            "gui.item." + key + ".name",
+            "<light_purple>" + fallbackName + "</light_purple>",
+            placeholders
+        );
+        List<String> lore = new java.util.ArrayList<>();
+        for (int index = 0; index < fallbackLore.length; index++) {
+            lore.add(configManager.messageOrDefault(
+                "gui.item." + key + ".lore." + index,
+                "<gray>" + fallbackLore[index] + "</gray>",
+                placeholders
+            ));
+        }
+        return rawItem(material, name, lore);
+    }
+
+    private ItemStack rawItem(Material material, String name, List<String> lore) {
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName(ChatColor.RESET.toString() + ChatColor.LIGHT_PURPLE + name);
-        if (lore.length > 0) {
-            meta.setLore(List.of(lore).stream()
-                .map(line -> ChatColor.RESET.toString() + ChatColor.GRAY + line)
-                .toList());
+        meta.setDisplayName(ChatColor.RESET.toString() + name);
+        if (!lore.isEmpty()) {
+            meta.setLore(lore.stream().map(line -> ChatColor.RESET.toString() + line).toList());
         }
         itemStack.setItemMeta(meta);
         return itemStack;
     }
 
-    private String locationLore(Location location) {
-        return "Current: " + formatLocation(location);
-    }
-
     private String formatLocation(Location location) {
         if (location == null || location.getWorld() == null) {
-            return "unknown";
+            return configManager.plainMessage("status.unknown");
         }
         return location.getWorld().getName() + " " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ();
     }

@@ -16,11 +16,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -48,6 +50,44 @@ public final class ConfigManager {
     private final AtomicReference<ConfigSnapshot> snapshot;
     private final AsyncYamlWriter yamlWriter;
     private volatile YamlConfiguration messages;
+    private volatile YamlConfiguration germanMessages;
+    private volatile Language language = Language.ENGLISH;
+
+    public enum Language {
+        ENGLISH("en"),
+        GERMAN("de");
+
+        private final String id;
+
+        Language(String id) {
+            this.id = id;
+        }
+
+        public String id() {
+            return id;
+        }
+
+        public static Language fromString(String value) {
+            Language parsed = parse(value);
+            return parsed == null ? ENGLISH : parsed;
+        }
+
+        public static Language parse(String value) {
+            if (value == null) {
+                return null;
+            }
+            String normalized = value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
+            int localeSeparator = normalized.indexOf('-');
+            if (localeSeparator > 0) {
+                normalized = normalized.substring(0, localeSeparator);
+            }
+            return switch (normalized) {
+                case "de", "deutsch", "german", "ger" -> GERMAN;
+                case "en", "english", "englisch" -> ENGLISH;
+                default -> null;
+            };
+        }
+    }
 
     public ConfigManager(NeoTab plugin, AsyncYamlWriter yamlWriter) {
         this.plugin = plugin;
@@ -64,8 +104,9 @@ public final class ConfigManager {
 
     public void reload() {
         plugin.reloadConfig();
-        rebuildSnapshot();
+        language = Language.fromString(plugin.getConfig().getString("language", "en"));
         loadMessages();
+        rebuildSnapshot();
         plugin.refreshMetrics();
     }
 
@@ -75,6 +116,7 @@ public final class ConfigManager {
 
     private void rebuildSnapshot() {
         FileConfiguration config = plugin.getConfig();
+        language = Language.fromString(config.getString("language", "en"));
 
         String serverName = config.getString("server-name", "<gradient:#AA00AA:#BA55D3>Welcome from NeoTab</gradient>");
         String footerFormat = config.getString("ram-format", "<gray>RAM: <light_purple>{used}MB / {total}MB ({percent}%)</light_purple></gray>");
@@ -108,7 +150,7 @@ public final class ConfigManager {
         List<TextColor> colors = parseColors(config.getStringList("custom-colors"));
         if (colors.isEmpty()) {
             colors = DEFAULT_COLORS;
-            logWarn("<color:#FF55FF>No valid custom-colors found; using defaults.</color>");
+            logWarn("log.config.no-valid-colors", Collections.emptyMap());
         }
 
         String validatedServerName = validateMiniMessage(serverName, "server-name");
@@ -143,7 +185,8 @@ public final class ConfigManager {
             guiEnabled,
             tabProfiles,
             scoreboardConfig,
-            actionBarConfig
+            actionBarConfig,
+            language
         ));
     }
 
@@ -334,6 +377,13 @@ public final class ConfigManager {
         persistAndRefresh();
     }
 
+    public void setLanguage(Language newLanguage) {
+        Language selected = newLanguage == null ? Language.ENGLISH : newLanguage;
+        plugin.getConfig().set("language", selected.id());
+        language = selected;
+        persistAndRefresh();
+    }
+
     public List<String> getRandomActionBarMessages() {
         return getActionBarConfig().randomMessages().messages();
     }
@@ -396,13 +446,68 @@ public final class ConfigManager {
     }
 
     public String message(String key, Map<String, String> placeholders) {
-        String raw = messages == null ? null : messages.getString(key);
+        String raw = rawMessage(key);
         if (raw == null) {
             raw = "<color:#FF55FF>Missing message: " + key + "</color>";
         }
 
-        String resolved = replacePlaceholders(normalizeMessageTheme(raw), placeholders);
+        String resolved = replacePlaceholders(normalizeMessageTheme(raw), placeholders == null ? Collections.emptyMap() : placeholders);
         return toLegacy(deserialize(resolved, "messages." + key));
+    }
+
+    public String messageOrDefault(String key, String fallback, Map<String, String> placeholders) {
+        String raw = rawMessage(key);
+        if (raw == null) {
+            raw = fallback;
+        }
+        String resolved = replacePlaceholders(
+            normalizeMessageTheme(raw == null ? "" : raw),
+            placeholders == null ? Collections.emptyMap() : placeholders
+        );
+        return toLegacy(deserialize(resolved, "messages." + key));
+    }
+
+    public String plainMessage(String key) {
+        return plainMessage(key, Collections.emptyMap());
+    }
+
+    public String plainMessage(String key, Map<String, String> placeholders) {
+        String raw = rawMessage(key);
+        if (raw == null) {
+            raw = "Missing message: " + key;
+        }
+        String resolved = replacePlaceholders(normalizeMessageTheme(raw), placeholders == null ? Collections.emptyMap() : placeholders);
+        return toPlain(resolved, "messages." + key);
+    }
+
+    public void log(Level level, String key) {
+        log(level, key, Collections.emptyMap(), null);
+    }
+
+    public void log(Level level, String key, Map<String, String> placeholders) {
+        log(level, key, placeholders, null);
+    }
+
+    public void log(Level level, String key, Map<String, String> placeholders, Throwable throwable) {
+        java.util.logging.Logger logger = plugin.getLogger();
+        if (!logger.isLoggable(level)) {
+            return;
+        }
+        String message = plainMessage(key, sanitizeLogPlaceholders(placeholders));
+        if (throwable == null) {
+            logger.log(level, message);
+        } else {
+            logger.log(level, message, throwable);
+        }
+    }
+
+    public Language getLanguage() {
+        return language;
+    }
+
+    public String languageDisplayName(Language selected) {
+        Language value = selected == null ? Language.ENGLISH : selected;
+        return plainMessage("language." + value.id());
     }
 
     public Component deserialize(String input, String context) {
@@ -414,7 +519,11 @@ public final class ConfigManager {
         try {
             return miniMessage.deserialize(prepared);
         } catch (Exception ex) {
-            logWarn("<color:#FF55FF>MiniMessage parse error for " + context + ": " + ex.getMessage() + "</color>");
+            // Do not route this parser failure through localized messages: doing so would call
+            // deserialize() again and could recurse if the diagnostic message is also invalid.
+            plugin.getLogger().warning(
+                "MiniMessage parse error for " + String.valueOf(context) + ": " + String.valueOf(ex.getMessage())
+            );
             return Component.text(prepared);
         }
     }
@@ -547,23 +656,71 @@ public final class ConfigManager {
     }
 
     private void loadMessages() {
-        File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
-        if (!messagesFile.exists()) {
-            plugin.saveResource("messages.yml", false);
-        }
-        messages = YamlConfiguration.loadConfiguration(messagesFile);
-        try (InputStream defaultsStream = plugin.getResource("messages.yml")) {
-            if (defaultsStream == null) {
-                return;
-            }
+        messages = loadMessageFile("messages.yml");
+        germanMessages = loadMessageFile("messages_de.yml");
+    }
 
-            YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(defaultsStream, StandardCharsets.UTF_8));
-            messages.setDefaults(defaults);
-            messages.options().copyDefaults(true);
-            yamlWriter.write(messagesFile.toPath(), messages.saveToString());
-        } catch (IOException ex) {
-            plugin.getLogger().warning("Could not update messages.yml defaults: " + ex.getMessage());
+    private YamlConfiguration loadMessageFile(String resourceName) {
+        File messageFile = new File(plugin.getDataFolder(), resourceName);
+        InputStream packagedDefaults = plugin.getResource(resourceName);
+        if (!messageFile.exists() && packagedDefaults != null) {
+            try {
+                plugin.saveResource(resourceName, false);
+            } catch (RuntimeException ex) {
+                logMessageFileFailure("create", resourceName, ex);
+            }
         }
+
+        YamlConfiguration loaded = new YamlConfiguration();
+        boolean userFileValid = false;
+        if (messageFile.isFile()) {
+            try {
+                loaded.load(messageFile);
+                userFileValid = true;
+            } catch (IOException | InvalidConfigurationException ex) {
+                // Never replace a malformed user translation with generated defaults. Keeping the
+                // original file intact gives the administrator a chance to repair or recover it.
+                logMessageFileFailure("load", resourceName, ex);
+                loaded = new YamlConfiguration();
+            }
+        } else if (messageFile.exists()) {
+            logMessageFileFailure("load", resourceName, new IOException("path is not a regular file"));
+        }
+
+        if (packagedDefaults == null) {
+            plugin.getLogger().warning(
+                "Bundled NeoTab resource " + resourceName + " is missing; continuing with available fallback messages."
+            );
+            return loaded;
+        }
+
+        try (InputStream defaultsStream = packagedDefaults;
+             InputStreamReader reader = new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)) {
+            YamlConfiguration defaults = new YamlConfiguration();
+            defaults.load(reader);
+            YamlConfiguration loadedMessages = loaded;
+            boolean missingDefaults = userFileValid && defaults.getKeys(true).stream()
+                .anyMatch(key -> !loadedMessages.contains(key, true));
+            loaded.setDefaults(defaults);
+            loaded.options().copyDefaults(true);
+            if (missingDefaults) {
+                yamlWriter.write(messageFile.toPath(), loaded.saveToString());
+            }
+        } catch (IOException | InvalidConfigurationException ex) {
+            logMessageFileFailure("load bundled defaults for", resourceName, ex);
+        }
+        return loaded;
+    }
+
+    private void logMessageFileFailure(String action, String resourceName, Throwable error) {
+        // This is deliberately not localized: the localization files themselves are unavailable
+        // or invalid on this bootstrap/error path.
+        plugin.getLogger().log(
+            Level.WARNING,
+            "Could not " + action + " NeoTab message file " + resourceName
+                + "; the existing file was left unchanged and available fallbacks will be used.",
+            error
+        );
     }
 
     private List<TextColor> parseColors(List<String> entries) {
@@ -579,7 +736,7 @@ public final class ConfigManager {
 
             TextColor color = TextColor.fromHexString(entry.trim());
             if (color == null) {
-                logWarn("<color:#FF55FF>Invalid color in custom-colors: " + entry + "</color>");
+                logWarn("log.config.invalid-color", Map.of("entry", entry));
                 continue;
             }
             colors.add(color);
@@ -593,7 +750,7 @@ public final class ConfigManager {
             return style;
         }
 
-        logWarn("<color:#FF55FF>Invalid " + path + " in config.yml; falling back to " + fallback.id() + ".</color>");
+        logWarn("log.config.invalid-style", Map.of("path", path, "fallback", fallback.id()));
         return fallback;
     }
 
@@ -612,7 +769,7 @@ public final class ConfigManager {
             String normalizedKey = normalizePerformancePresetName(key);
             int ticks = section.getInt(key, -1);
             if (!isValidPerformancePresetName(normalizedKey) || ticks < MIN_PERFORMANCE_INTERVAL_TICKS) {
-                logWarn("<color:#FF55FF>Invalid performance preset in config.yml: " + key + "</color>");
+                logWarn("log.config.invalid-performance-preset", Map.of("key", key));
                 continue;
             }
             presets.put(normalizedKey, clampPerformanceTicks(ticks));
@@ -631,7 +788,7 @@ public final class ConfigManager {
             String normalizedKey = normalizePerformancePresetName(key);
             int ticks = section.getInt(key, -1);
             if (!isValidPerformancePresetName(normalizedKey) || ticks < MIN_PERFORMANCE_INTERVAL_TICKS) {
-                logWarn("<color:#FF55FF>Invalid saved performance preset in config.yml: " + key + "</color>");
+                logWarn("log.config.invalid-saved-performance-preset", Map.of("key", key));
                 continue;
             }
             values.put(normalizedKey, clampPerformanceTicks(ticks));
@@ -671,7 +828,7 @@ public final class ConfigManager {
         for (String key : section.getKeys(false)) {
             String normalizedKey = normalizePerformancePresetName(key);
             if (!isValidPerformancePresetName(normalizedKey)) {
-                logWarn("<color:#FF55FF>Invalid scoreboard preset in config.yml: " + key + "</color>");
+                logWarn("log.config.invalid-scoreboard-preset", Map.of("key", key));
                 continue;
             }
 
@@ -702,7 +859,7 @@ public final class ConfigManager {
                 continue;
             }
             if (!isValidPerformancePresetName(normalizedKey)) {
-                logWarn("<color:#FF55FF>Invalid tab profile in config.yml: " + key + "</color>");
+                logWarn("log.config.invalid-tab-profile", Map.of("key", key));
                 continue;
             }
 
@@ -713,7 +870,7 @@ public final class ConfigManager {
             AnimationUtils.Style style = resolveStyle(config.getString(path + ".animation-style", defaultProfile.style().id()), defaultProfile.style(), path + ".animation-style");
             List<TextColor> profileColors = config.contains(path + ".custom-colors") ? parseColors(config.getStringList(path + ".custom-colors")) : defaultProfile.customColors();
             if (profileColors.isEmpty()) {
-                logWarn("<color:#FF55FF>No valid custom-colors found for tab profile " + normalizedKey + "; using default colors.</color>");
+                logWarn("log.config.no-valid-profile-colors", Map.of("profile", normalizedKey));
                 profileColors = defaultProfile.customColors();
             }
             String footerFormat = validateMiniMessage(config.getString(path + ".ram-format", defaultProfile.footerFormat()), path + ".ram-format");
@@ -738,20 +895,35 @@ public final class ConfigManager {
             loadActionBarTimerConfig(config),
             new StopwatchActionBarConfig(
                 config.getBoolean("extras.actionbar.stopwatch.enabled", true),
-                validateMiniMessage(config.getString("extras.actionbar.stopwatch.text", "<light_purple>Stopwatch {time}</light_purple>"), "extras.actionbar.stopwatch.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.stopwatch.text",
+                    "<light_purple>Stopwatch {time}</light_purple>",
+                    "actionbar.stopwatch.text"
+                ), "extras.actionbar.stopwatch.text")
             ),
             new ClockActionBarConfig(
                 config.getBoolean("extras.actionbar.clock.enabled", false),
                 resolveZoneId(config.getString("extras.actionbar.clock.timezone", "Europe/Berlin")),
                 clampSecondsInterval(config.getInt("extras.actionbar.clock.interval-seconds", 60), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.clock.interval-seconds"),
                 validateClockFormat(config.getString("extras.actionbar.clock.format", "HH:mm")),
-                validateMiniMessage(config.getString("extras.actionbar.clock.text", "<gray>Time: <light_purple>{time}</light_purple></gray>"), "extras.actionbar.clock.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.clock.text",
+                    "<gray>Time: <light_purple>{time}</light_purple></gray>",
+                    "actionbar.clock.text"
+                ), "extras.actionbar.clock.text")
             ),
             new WelcomeActionBarConfig(
                 config.getBoolean("extras.actionbar.welcome.enabled", true),
                 Math.max(0, config.getInt("extras.actionbar.welcome.delay-ticks", 20)),
                 Math.max(1, config.getInt("extras.actionbar.welcome.duration-seconds", 5)),
-                validateMiniMessage(config.getString("extras.actionbar.welcome.text", "<gradient:#AA00AA:#BA55D3>Welcome {player}!</gradient>"), "extras.actionbar.welcome.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.welcome.text",
+                    "<gradient:#AA00AA:#BA55D3>Welcome {player}!</gradient>",
+                    "actionbar.welcome.text"
+                ), "extras.actionbar.welcome.text")
             ),
             new RandomMessagesActionBarConfig(
                 config.getBoolean("extras.actionbar.random-messages.enabled", false),
@@ -763,21 +935,36 @@ public final class ConfigManager {
                 config.getBoolean("extras.actionbar.biome-popup.enabled", false),
                 clampTicksInterval(config.getInt("extras.actionbar.biome-popup.check-interval-ticks", 40), MIN_BIOME_CHECK_INTERVAL_TICKS, "extras.actionbar.biome-popup.check-interval-ticks"),
                 Math.max(1, config.getInt("extras.actionbar.biome-popup.duration-seconds", 7)),
-                validateMiniMessage(config.getString("extras.actionbar.biome-popup.text", "<gray>Entering <light_purple>{biome}</light_purple></gray>"), "extras.actionbar.biome-popup.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.biome-popup.text",
+                    "<gray>Entering <light_purple>{biome}</light_purple></gray>",
+                    "actionbar.biome-popup.text"
+                ), "extras.actionbar.biome-popup.text")
             ),
             new AchievementsActionBarConfig(
                 config.getBoolean("extras.actionbar.achievements.enabled", false),
                 config.getString("extras.actionbar.achievements.provider", "minecraft"),
                 clampSecondsInterval(config.getInt("extras.actionbar.achievements.interval-seconds", 60), MIN_ACTIONBAR_SECONDS_INTERVAL, "extras.actionbar.achievements.interval-seconds"),
                 Math.max(1, config.getInt("extras.actionbar.achievements.duration-seconds", 5)),
-                validateMiniMessage(config.getString("extras.actionbar.achievements.text", "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>"), "extras.actionbar.achievements.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.achievements.text",
+                    "<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>",
+                    "actionbar.achievements.text"
+                ), "extras.actionbar.achievements.text")
             ),
             new NearestPlayerActionBarConfig(
                 config.getBoolean("extras.actionbar.nearest-player.enabled", false),
                 clampTicksInterval(config.getInt("extras.actionbar.nearest-player.check-interval-ticks", 60), MIN_NEAREST_PLAYER_CHECK_INTERVAL_TICKS, "extras.actionbar.nearest-player.check-interval-ticks"),
                 Math.max(1, config.getInt("extras.actionbar.nearest-player.max-distance", 100)),
                 config.getBoolean("extras.actionbar.nearest-player.same-world-only", true),
-                validateMiniMessage(config.getString("extras.actionbar.nearest-player.text", "<gray>Nearest: <light_purple>{player}</light_purple> <gray>({distance} blocks)</gray>"), "extras.actionbar.nearest-player.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.nearest-player.text",
+                    "<gray>Nearest: <light_purple>{player}</light_purple> <gray>({distance} blocks)</gray>",
+                    "actionbar.nearest-player.text"
+                ), "extras.actionbar.nearest-player.text")
             ),
             new StructurePopupActionBarConfig(
                 config.getBoolean("extras.actionbar.structure-popup.enabled", false),
@@ -785,18 +972,26 @@ public final class ConfigManager {
                 clampTicksInterval(config.getInt("extras.actionbar.structure-popup.check-interval-ticks", 200), MIN_STRUCTURE_CHECK_INTERVAL_TICKS, "extras.actionbar.structure-popup.check-interval-ticks"),
                 Math.max(1, config.getInt("extras.actionbar.structure-popup.max-distance", 64)),
                 Math.max(1, config.getInt("extras.actionbar.structure-popup.duration-seconds", 7)),
-                validateMiniMessage(config.getString("extras.actionbar.structure-popup.text", "<gray>Nearby structure: <light_purple>{structure}</light_purple></gray>"), "extras.actionbar.structure-popup.text")
+                validateMiniMessage(localizedDefaultConfigValue(
+                    config,
+                    "extras.actionbar.structure-popup.text",
+                    "<gray>Nearby structure: <light_purple>{structure}</light_purple></gray>",
+                    "actionbar.structure-popup.text"
+                ), "extras.actionbar.structure-popup.text")
             )
         );
     }
 
     private ActionBarTimerConfig loadActionBarTimerConfig(FileConfiguration config) {
         String path = hasNewTimerConfig(config) ? "extras.actionbar.timer" : "extras.actionbar-timer";
+        String runningDefault = "{time}";
+        String pausedDefault = "Paused {time}";
+        String endedDefault = "timer ends";
         return new ActionBarTimerConfig(
             config.getBoolean(path + ".enabled", true),
-            validateMiniMessage(config.getString(path + ".running-format", "{time}"), path + ".running-format"),
-            validateMiniMessage(config.getString(path + ".paused-format", "Paused {time}"), path + ".paused-format"),
-            validateMiniMessage(config.getString(path + ".ended-format", "timer ends"), path + ".ended-format")
+            validateMiniMessage(localizedDefaultConfigValue(config, path + ".running-format", runningDefault, "actionbar.timer.running-format"), path + ".running-format"),
+            validateMiniMessage(localizedDefaultConfigValue(config, path + ".paused-format", pausedDefault, "actionbar.timer.paused-format"), path + ".paused-format"),
+            validateMiniMessage(localizedDefaultConfigValue(config, path + ".ended-format", endedDefault, "actionbar.timer.ended-format"), path + ".ended-format")
         );
     }
 
@@ -807,52 +1002,87 @@ public final class ConfigManager {
     }
 
     private List<String> loadRandomMessages(FileConfiguration config) {
+        List<String> defaultMessages = defaultRandomMessages();
         if (!config.contains("extras.actionbar.random-messages.messages")) {
-            return List.of(
-                "Drink water! <3",
-                "Stay hydrated!",
-                "Take a small break :)",
-                "Remember to stretch!",
-                "Don't forget to blink :)",
-                "Have fun playing!",
-                "Good luck and have fun!",
-                "Be kind to other players <3",
-                "Enjoy your stay!",
-                "Need help? Use /help",
-                "Join our Discord with /discord",
-                "Found a bug? Tell the staff!",
-                "Invite your friends :)",
-                "Explore, build, survive!",
-                "Your adventure starts here!",
-                "Stay awesome!",
-                "Keep calm and mine on!",
-                "Watch your back!",
-                "Don't dig straight down!",
-                "Diamonds are waiting for you!",
-                "Teamwork makes it easier!",
-                "Respect other players.",
-                "A friendly chat makes the server better.",
-                "Take care of your inventory!",
-                "Remember to set your home.",
-                "Check out the server rules.",
-                "Use /spawn to return safely.",
-                "New here? Ask the team for help!",
-                "Thanks for playing on this server!",
-                "Have a cozy session :)"
-            );
+            return localizedRandomMessages(defaultMessages);
         }
 
         List<String> entries = config.getStringList("extras.actionbar.random-messages.messages");
-        ArrayList<String> messages = new ArrayList<>();
+        if (entries.equals(defaultMessages)) {
+            List<String> legacyGermanMessages = enabledLegacyGermanRandomMessages(config);
+            if (legacyGermanMessages != null) {
+                return legacyGermanMessages;
+            }
+            return localizedRandomMessages(defaultMessages);
+        }
+        return validateRandomMessages(entries, "extras.actionbar.random-messages.messages");
+    }
+
+    private List<String> enabledLegacyGermanRandomMessages(FileConfiguration config) {
+        String path = "extras.actionbar.random-messages.inactive-message-packs.german";
+        if (language != Language.GERMAN || !config.getBoolean(path + ".enabled", false)) {
+            return null;
+        }
+        return validateRandomMessages(config.getStringList(path + ".messages"), path + ".messages");
+    }
+
+    private List<String> validateRandomMessages(List<String> entries, String context) {
+        ArrayList<String> validated = new ArrayList<>();
         int index = 0;
         for (String entry : entries) {
             if (entry == null || entry.isBlank()) {
                 continue;
             }
-            messages.add(validateMiniMessage(entry, "extras.actionbar.random-messages.messages." + index));
+            validated.add(validateMiniMessage(entry, context + "." + index));
             index++;
         }
-        return List.copyOf(messages);
+        return List.copyOf(validated);
+    }
+
+    private List<String> defaultRandomMessages() {
+        return List.of(
+            "Drink water! <3", "Stay hydrated!", "Take a small break :)", "Remember to stretch!",
+            "Don't forget to blink :)", "Have fun playing!", "Good luck and have fun!",
+            "Be kind to other players <3", "Enjoy your stay!", "Need help? Use /help",
+            "Join our Discord with /discord", "Found a bug? Tell the staff!", "Invite your friends :)",
+            "Explore, build, survive!", "Your adventure starts here!", "Stay awesome!",
+            "Keep calm and mine on!", "Watch your back!", "Don't dig straight down!",
+            "Diamonds are waiting for you!", "Teamwork makes it easier!", "Respect other players.",
+            "A friendly chat makes the server better.", "Take care of your inventory!", "Remember to set your home.",
+            "Check out the server rules.", "Use /spawn to return safely.", "New here? Ask the team for help!",
+            "Thanks for playing on this server!", "Have a cozy session :)"
+        );
+    }
+
+    private List<String> localizedRandomMessages(List<String> fallback) {
+        YamlConfiguration selectedMessages = language == Language.GERMAN ? germanMessages : messages;
+        List<String> localized = localizedRandomMessages(selectedMessages);
+        if (localized.isEmpty() && language == Language.GERMAN) {
+            localized = localizedRandomMessages(messages);
+        }
+        return localized.isEmpty() ? fallback : localized;
+    }
+
+    private List<String> localizedRandomMessages(YamlConfiguration source) {
+        if (source == null) {
+            return List.of();
+        }
+        return validateRandomMessages(source.getStringList("actionbar.random-messages"), "actionbar.random-messages");
+    }
+
+    private String localizedDefaultConfigValue(FileConfiguration config, String path, String englishDefault, String messageKey) {
+        String configured = config.getString(path);
+        return selectLocalizedDefault(configured, englishDefault, rawMessage(messageKey));
+    }
+
+    static String selectLocalizedDefault(String configured, String englishDefault, String localized) {
+        if (configured != null && !configured.equals(englishDefault)) {
+            return configured;
+        }
+        if (localized != null) {
+            return localized;
+        }
+        return configured == null ? englishDefault : configured;
     }
 
     private ZoneId resolveZoneId(String input) {
@@ -860,7 +1090,7 @@ public final class ConfigManager {
         try {
             return ZoneId.of(zoneName);
         } catch (DateTimeException ex) {
-            logWarn("<color:#FF55FF>Invalid extras.actionbar.clock.timezone '" + zoneName + "'; falling back to Europe/Berlin.</color>");
+            logWarn("log.config.invalid-timezone", Map.of("timezone", zoneName));
             return ZoneId.of("Europe/Berlin");
         }
     }
@@ -871,7 +1101,7 @@ public final class ConfigManager {
             DateTimeFormatter.ofPattern(format);
             return format;
         } catch (IllegalArgumentException ex) {
-            logWarn("<color:#FF55FF>Invalid extras.actionbar.clock.format; falling back to HH:mm.</color>");
+            logWarn("log.config.invalid-clock-format", Collections.emptyMap());
             return "HH:mm";
         }
     }
@@ -880,7 +1110,7 @@ public final class ConfigManager {
         if (value >= min) {
             return value;
         }
-        logWarn("<color:#FF55FF>" + path + " was below " + min + " seconds; clamped.</color>");
+        logWarn("log.config.seconds-clamped", Map.of("path", path, "min", String.valueOf(min)));
         return min;
     }
 
@@ -888,7 +1118,7 @@ public final class ConfigManager {
         if (value >= min) {
             return value;
         }
-        logWarn("<color:#FF55FF>" + path + " was below " + min + " ticks; clamped.</color>");
+        logWarn("log.config.ticks-clamped", Map.of("path", path, "min", String.valueOf(min)));
         return min;
     }
 
@@ -950,9 +1180,25 @@ public final class ConfigManager {
     private String replacePlaceholders(String input, Map<String, String> placeholders) {
         String resolved = input;
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
-            resolved = resolved.replace("{" + entry.getKey() + "}", entry.getValue());
+            resolved = resolved.replace(
+                "{" + entry.getKey() + "}",
+                entry.getValue() == null ? "" : entry.getValue()
+            );
         }
         return resolved;
+    }
+
+    private Map<String, String> sanitizeLogPlaceholders(Map<String, String> placeholders) {
+        if (placeholders == null || placeholders.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        LinkedHashMap<String, String> sanitized = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            String value = entry.getValue() == null ? "" : entry.getValue();
+            value = value.replace('\r', ' ').replace('\n', ' ');
+            sanitized.put(entry.getKey(), miniMessage.escapeTags(value));
+        }
+        return sanitized;
     }
 
     private String normalizeMessageTheme(String input) {
@@ -1015,13 +1261,23 @@ public final class ConfigManager {
             miniMessage.deserialize(translateLegacyCodes(sanitized));
             return sanitized;
         } catch (Exception ex) {
-            logWarn("<color:#FF55FF>Invalid MiniMessage for " + context + "; stripping tags.</color>");
+            logWarn("log.config.invalid-minimessage", Map.of("context", context));
             return sanitized.replaceAll("<[^>]+>", "");
         }
     }
 
-    private void logWarn(String message) {
-        plugin.getLogger().warning(PlainTextComponentSerializer.plainText().serialize(miniMessage.deserialize(message)));
+    private String rawMessage(String key) {
+        if (language == Language.GERMAN && germanMessages != null) {
+            String german = germanMessages.getString(key);
+            if (german != null) {
+                return german;
+            }
+        }
+        return messages == null ? null : messages.getString(key);
+    }
+
+    private void logWarn(String key, Map<String, String> placeholders) {
+        log(Level.WARNING, key, placeholders);
     }
 
     public record ConfigSnapshot(
@@ -1041,7 +1297,8 @@ public final class ConfigManager {
         boolean guiEnabled,
         Map<String, TabProfile> tabProfiles,
         ScoreboardConfig scoreboardConfig,
-        ActionBarConfig actionBarConfig
+        ActionBarConfig actionBarConfig,
+        Language language
     ) {
         private TabProfile defaultTabProfile() {
             return new TabProfile(

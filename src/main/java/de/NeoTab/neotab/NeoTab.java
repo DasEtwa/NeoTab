@@ -46,6 +46,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         saveDefaultConfig();
         yamlWriter = new AsyncYamlWriter(getLogger());
         configManager = new ConfigManager(this, yamlWriter);
+        yamlWriter.setMessageResolver(configManager::plainMessage);
         hookLuckPerms();
 
         tabUpdater = new TabUpdater(this, configManager);
@@ -99,7 +100,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         updateChecker.start();
         initializeMetrics();
 
-        logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab enabled.</bold></gradient>");
+        configManager.log(java.util.logging.Level.INFO, "log.plugin.enabled");
     }
 
     @Override
@@ -131,7 +132,9 @@ public final class NeoTab extends JavaPlugin implements Listener {
         if (yamlWriter != null) {
             yamlWriter.close();
         }
-        logInfo("<gradient:#AA00AA:#BA55D3><bold>NeoTab disabled.</bold></gradient>");
+        if (configManager != null) {
+            configManager.log(java.util.logging.Level.INFO, "log.plugin.disabled");
+        }
     }
 
     void closePluginInventories() {
@@ -255,7 +258,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private void registerCommands() {
         PluginCommand command = getCommand("tab");
         if (command == null) {
-            logInfo("<color:#FF55FF>Command registration failed: /tab missing from plugin.yml.</color>");
+            configManager.log(java.util.logging.Level.SEVERE, "log.plugin.command-registration-failed");
             return;
         }
 
@@ -327,7 +330,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
             neoTabMetrics = null;
             try {
                 if (getConfig().getBoolean("debug", false)) {
-                    getLogger().log(java.util.logging.Level.FINE, "bStats initialization failed; NeoTab will continue without metrics.", error);
+                    configManager.log(java.util.logging.Level.FINE, "log.plugin.bstats-failed", java.util.Map.of(), error);
                 }
             } catch (Throwable ignored) {
                 // Metrics failures must never affect the plugin lifecycle.
@@ -367,6 +370,6 @@ public final class NeoTab extends JavaPlugin implements Listener {
         }
         luckPermsWarned = true;
         String detail = cause == null || cause.getMessage() == null ? "" : " (" + cause.getMessage() + ")";
-        getLogger().warning("LuckPerms not found or unavailable; prefix/suffix support disabled." + detail);
+        configManager.log(java.util.logging.Level.WARNING, "log.plugin.luckperms-unavailable", java.util.Map.of("detail", detail));
     }
 }

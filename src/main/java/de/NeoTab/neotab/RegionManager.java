@@ -101,18 +101,18 @@ public final class RegionManager {
         for (String key : section.getKeys(false)) {
             String name = normalizeName(key);
             if (!isValidRegionName(name)) {
-                plugin.getLogger().warning("Invalid region name in regions.yml: " + key);
+                configManager.log(java.util.logging.Level.WARNING, "log.region.invalid-name", Map.of("name", key));
                 continue;
             }
             if (regions.containsKey(name)) {
-                plugin.getLogger().warning("Duplicate normalized region name in regions.yml: " + key);
+                configManager.log(java.util.logging.Level.WARNING, "log.region.duplicate-name", Map.of("name", key));
                 continue;
             }
 
             String path = "regions." + key;
             String world = config.getString(path + ".world", "");
             if (world == null || world.isBlank()) {
-                plugin.getLogger().warning("Region " + key + " has no world; skipping.");
+                configManager.log(java.util.logging.Level.WARNING, "log.region.no-world", Map.of("name", key));
                 continue;
             }
 
@@ -135,7 +135,10 @@ public final class RegionManager {
                 regions.size(), indexedChunkCount, largeRegionCount, null, region
             );
             if (!validation.changed()) {
-                plugin.getLogger().warning("Region " + key + " was not loaded: " + validation.detail());
+                configManager.log(java.util.logging.Level.WARNING, "log.region.not-loaded", Map.of(
+                    "name", key,
+                    "detail", localizedMutationDetail(validation)
+                ));
                 continue;
             }
             addRegion(region);
@@ -736,7 +739,7 @@ public final class RegionManager {
             return;
         }
         if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
-            plugin.getLogger().warning("Could not create NeoTab data folder for regions.yml.");
+            configManager.log(java.util.logging.Level.WARNING, "log.region.data-folder-failed");
             return;
         }
         try {
@@ -747,7 +750,9 @@ public final class RegionManager {
                 config.set("regions", new LinkedHashMap<>());
                 config.save(regionsFile);
             } catch (java.io.IOException ioException) {
-                plugin.getLogger().warning("Could not create regions.yml: " + ioException.getMessage());
+                configManager.log(java.util.logging.Level.WARNING, "log.region.file-create-failed", Map.of(
+                    "error", String.valueOf(ioException.getMessage())
+                ));
             }
         }
     }
@@ -755,15 +760,50 @@ public final class RegionManager {
     private void warnMissingTabProfile(String profileName, String regionName) {
         String key = regionName + ":" + profileName;
         if (warnedTabProfiles.putIfAbsent(key, true) == null) {
-            plugin.getLogger().warning("Region " + regionName + " references missing tab profile '" + profileName + "'. Using default.");
+            configManager.log(java.util.logging.Level.WARNING, "log.region.missing-tab-profile", Map.of(
+                "region", regionName,
+                "profile", profileName
+            ));
         }
     }
 
     private void warnMissingScoreboardProfile(String profileName, String regionName) {
         String key = regionName + ":" + profileName;
         if (warnedScoreboardProfiles.putIfAbsent(key, true) == null) {
-            plugin.getLogger().warning("Region " + regionName + " references missing scoreboard profile '" + profileName + "'. Using default.");
+            configManager.log(java.util.logging.Level.WARNING, "log.region.missing-scoreboard-profile", Map.of(
+                "region", regionName,
+                "profile", profileName
+            ));
         }
+    }
+
+    public String localizedMutationDetail(RegionMutationResult result) {
+        if (result == null) {
+            return configManager.plainMessage("region-failure.invalid-input");
+        }
+        return switch (result.failure()) {
+            case NONE -> "";
+            case INVALID_INPUT -> configManager.plainMessage("region-failure.invalid-input");
+            case NOT_FOUND -> configManager.plainMessage("region-failure.not-found");
+            case DUPLICATE -> configManager.plainMessage("region-failure.duplicate");
+            case WORLD_MISMATCH -> configManager.plainMessage("region-failure.world-mismatch");
+            case REGION_COUNT_LIMIT -> configManager.plainMessage(
+                "region-failure.region-count-limit",
+                Map.of("max", Integer.toString(MAX_REGIONS))
+            );
+            case REGION_SIZE_LIMIT -> configManager.plainMessage(
+                "region-failure.region-size-limit",
+                Map.of("max", Long.toString(MAX_REGION_AXIS_BLOCKS))
+            );
+            case CHUNK_BUDGET_LIMIT -> configManager.plainMessage(
+                "region-failure.chunk-budget-limit",
+                Map.of("max", Long.toString(MAX_TOTAL_INDEXED_CHUNKS))
+            );
+            case LARGE_REGION_LIMIT -> configManager.plainMessage(
+                "region-failure.large-region-limit",
+                Map.of("max", Integer.toString(MAX_LARGE_REGIONS))
+            );
+        };
     }
 
     public enum MutationFailure {

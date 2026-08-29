@@ -15,7 +15,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -81,7 +80,7 @@ public final class UpdateChecker {
             return;
         }
 
-        player.sendMessage(ChatColor.LIGHT_PURPLE + result.message());
+        player.sendMessage(configManager.message("update-available", result.placeholders()));
     }
 
     static String minecraftVersion() {
@@ -103,7 +102,7 @@ public final class UpdateChecker {
                 .max(this::compareModrinthVersions);
 
             if (latest.isEmpty()) {
-                publish(CheckResult.noUpdate(currentVersion, "No compatible Modrinth version found for " + minecraftVersion + "."), checkGeneration);
+                publish(CheckResult.noCompatible(currentVersion, minecraftVersion), checkGeneration);
                 return;
             }
 
@@ -113,14 +112,14 @@ public final class UpdateChecker {
                 return;
             }
 
-            publish(CheckResult.noUpdate(currentVersion, "NeoTab is up to date for " + minecraftVersion + "."), checkGeneration);
+            publish(CheckResult.upToDate(currentVersion, minecraftVersion), checkGeneration);
         } catch (IOException | InterruptedException ex) {
             if (ex instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            publish(CheckResult.failed("NeoTab update check failed: " + cleanMessage(ex)), checkGeneration);
+            publish(CheckResult.failed(cleanMessage(ex)), checkGeneration);
         } catch (RuntimeException ex) {
-            publish(CheckResult.failed("NeoTab update check failed: " + cleanMessage(ex)), checkGeneration);
+            publish(CheckResult.failed(cleanMessage(ex)), checkGeneration);
         }
     }
 
@@ -159,18 +158,18 @@ public final class UpdateChecker {
 
             if (result.failed()) {
                 latestResult = null;
-                plugin.getLogger().warning(result.message());
+                configManager.log(java.util.logging.Level.WARNING, result.messageKey(), result.placeholders());
                 return;
             }
 
             if (!result.updateAvailable()) {
-                plugin.getLogger().fine(result.message());
+                configManager.log(java.util.logging.Level.FINE, result.messageKey(), result.placeholders());
                 latestResult = null;
                 return;
             }
 
             latestResult = result;
-            plugin.getLogger().info(result.message());
+            configManager.log(java.util.logging.Level.INFO, result.messageKey(), result.placeholders());
             if (!configManager.getUpdateCheckerConfig().notifyAdmins()) {
                 return;
             }
@@ -352,7 +351,8 @@ public final class UpdateChecker {
         boolean failed,
         String currentVersion,
         String latestVersion,
-        String message
+        String messageKey,
+        java.util.Map<String, String> placeholders
     ) {
         static CheckResult updateAvailable(String currentVersion, String latestVersion) {
             return new CheckResult(
@@ -360,16 +360,29 @@ public final class UpdateChecker {
                 false,
                 currentVersion,
                 latestVersion,
-                "NeoTab update available: current " + currentVersion + ", latest " + latestVersion + ". Download: " + DOWNLOAD_URL
+                "log.update.available",
+                java.util.Map.of(
+                    "current", currentVersion,
+                    "version", latestVersion,
+                    "url", DOWNLOAD_URL
+                )
             );
         }
 
-        static CheckResult noUpdate(String currentVersion, String message) {
-            return new CheckResult(false, false, currentVersion, "", message);
+        static CheckResult noCompatible(String currentVersion, String minecraftVersion) {
+            return new CheckResult(false, false, currentVersion, "", "log.update.no-compatible", java.util.Map.of(
+                "minecraft", minecraftVersion
+            ));
         }
 
-        static CheckResult failed(String message) {
-            return new CheckResult(false, true, "", "", message);
+        static CheckResult upToDate(String currentVersion, String minecraftVersion) {
+            return new CheckResult(false, false, currentVersion, "", "log.update.current", java.util.Map.of(
+                "minecraft", minecraftVersion
+            ));
+        }
+
+        static CheckResult failed(String error) {
+            return new CheckResult(false, true, "", "", "log.update.failed", java.util.Map.of("error", error));
         }
     }
 

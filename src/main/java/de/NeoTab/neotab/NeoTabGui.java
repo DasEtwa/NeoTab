@@ -54,10 +54,11 @@ public final class NeoTabGui implements Listener {
         }
 
         Inventory inventory = createInventory(MenuType.MAIN, "NeoTab");
-        inventory.setItem(11, item(Material.NAME_TAG, "Tab", "Header name and animation style."));
-        inventory.setItem(13, item(Material.PAPER, "Scoreboard", "Sidebar scoreboard controls."));
-        inventory.setItem(15, item(Material.CLOCK, "Extras", "Interval and ActionBar Timer."));
-        inventory.setItem(22, item(Material.BARRIER, "Close", "Close this menu."));
+        inventory.setItem(11, guiItem(Material.NAME_TAG, "main.tab", "Tab", "Header name and animation style."));
+        inventory.setItem(13, guiItem(Material.PAPER, "main.scoreboard", "Scoreboard", "Sidebar scoreboard controls."));
+        inventory.setItem(15, guiItem(Material.CLOCK, "main.extras", "Extras", "Interval and ActionBar Timer."));
+        inventory.setItem(17, guiItem(Material.COMPASS, "main.language", "Language", "Choose English or German."));
+        inventory.setItem(22, guiItem(Material.BARRIER, "main.close", "Close", "Close this menu."));
         player.openInventory(inventory);
         if (notify) {
             player.sendMessage(configManager.message("gui-opened"));
@@ -118,6 +119,7 @@ public final class NeoTabGui implements Listener {
             case TIMER -> handleTimerClick(player, slot);
             case STOPWATCH -> handleStopwatchClick(player, slot);
             case PERFORMANCE_NOTICE -> handlePerformanceNoticeClick(player, slot);
+            case LANGUAGE -> handleLanguageClick(player, slot);
         }
     }
 
@@ -126,6 +128,7 @@ public final class NeoTabGui implements Listener {
             case 11 -> openTab(player);
             case 13 -> openScoreboard(player);
             case 15 -> openExtras(player);
+            case 17 -> openLanguage(player);
             case 22 -> player.closeInventory();
             default -> {
             }
@@ -134,11 +137,52 @@ public final class NeoTabGui implements Listener {
 
     private void openTab(Player player) {
         Inventory inventory = createInventory(MenuType.TAB, "NeoTab - Tab");
-        inventory.setItem(11, item(Material.NAME_TAG, "Name", "Current: " + configManager.getServerNamePlain()));
-        inventory.setItem(13, item(Material.PAINTING, "Style", "Current: " + configManager.getStyle().id()));
-        inventory.setItem(15, item(Material.MAGENTA_DYE, "Colors", "Current: " + currentColorSummary()));
+        inventory.setItem(11, guiItem(Material.NAME_TAG, "tab.name", "Name", "Current: " + configManager.getServerNamePlain(), Map.of("current", configManager.getServerNamePlain())));
+        inventory.setItem(13, guiItem(Material.PAINTING, "tab.style", "Style", "Current: " + configManager.getStyle().id(), Map.of("current", configManager.getStyle().id())));
+        inventory.setItem(15, guiItem(Material.MAGENTA_DYE, "tab.colors", "Colors", "Current: " + currentColorSummary(), Map.of("current", currentColorSummary())));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
+    }
+
+    private void openLanguage(Player player) {
+        if (!requirePermission(player, "neotab.language")) {
+            return;
+        }
+        Inventory inventory = createInventory(MenuType.LANGUAGE, "NeoTab - Language");
+        inventory.setItem(10, guiItem(Material.WRITABLE_BOOK, "language.english", "English", "Switch to English.", Map.of(
+            "current", configManager.getLanguage() == ConfigManager.Language.ENGLISH ? configManager.plainMessage("status.current") : ""
+        )));
+        inventory.setItem(16, guiItem(Material.WRITABLE_BOOK, "language.german", "German", "Auf Deutsch wechseln.", Map.of(
+            "current", configManager.getLanguage() == ConfigManager.Language.GERMAN ? configManager.plainMessage("status.current") : ""
+        )));
+        inventory.setItem(13, guiItem(Material.PAPER, "language.current", "Current Language", configManager.languageDisplayName(configManager.getLanguage()), Map.of(
+            "current", configManager.languageDisplayName(configManager.getLanguage())
+        )));
+        inventory.setItem(22, backItem());
+        player.openInventory(inventory);
+    }
+
+    private void handleLanguageClick(Player player, int slot) {
+        if (slot == 22) {
+            openMain(player, false);
+            return;
+        }
+        if (!requirePermission(player, "neotab.language")) {
+            return;
+        }
+        ConfigManager.Language selected = switch (slot) {
+            case 10 -> ConfigManager.Language.ENGLISH;
+            case 16 -> ConfigManager.Language.GERMAN;
+            default -> null;
+        };
+        if (selected == null) {
+            return;
+        }
+        configManager.setLanguage(selected);
+        player.sendMessage(configManager.message("language-changed", Map.of(
+            "language", configManager.languageDisplayName(selected)
+        )));
+        openLanguage(player);
     }
 
     private void handleTabClick(Player player, int slot) {
@@ -176,11 +220,11 @@ public final class NeoTabGui implements Listener {
         }
 
         Inventory inventory = createInventory(MenuType.COLORS, "NeoTab - Colors");
-        inventory.setItem(10, item(Material.PURPLE_DYE, "Purple", colorPresetLore("purple")));
-        inventory.setItem(11, item(Material.RED_DYE, "Red", colorPresetLore("red")));
-        inventory.setItem(12, item(Material.GREEN_DYE, "Green", colorPresetLore("green")));
-        inventory.setItem(13, item(Material.YELLOW_DYE, "Gold", colorPresetLore("gold")));
-        inventory.setItem(15, item(Material.WRITABLE_BOOK, "Custom", "Type 1-5 hex colors in chat."));
+        inventory.setItem(10, guiItem(Material.PURPLE_DYE, "colors.purple", "Purple", colorPresetLore("purple"), Map.of("colors", colorPresetLore("purple"))));
+        inventory.setItem(11, guiItem(Material.RED_DYE, "colors.red", "Red", colorPresetLore("red"), Map.of("colors", colorPresetLore("red"))));
+        inventory.setItem(12, guiItem(Material.GREEN_DYE, "colors.green", "Green", colorPresetLore("green"), Map.of("colors", colorPresetLore("green"))));
+        inventory.setItem(13, guiItem(Material.YELLOW_DYE, "colors.gold", "Gold", colorPresetLore("gold"), Map.of("colors", colorPresetLore("gold"))));
+        inventory.setItem(15, guiItem(Material.WRITABLE_BOOK, "colors.custom", "Custom", "Type 1-5 hex colors in chat."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -239,7 +283,9 @@ public final class NeoTabGui implements Listener {
         AnimationUtils.Style currentStyle = configManager.getStyle();
         for (AnimationUtils.Style style : AnimationUtils.Style.values()) {
             String lore = style == currentStyle ? "Current style." : "Apply this header animation.";
-            inventory.setItem(slot, item(Material.PAINTING, style.id(), lore));
+            inventory.setItem(slot, guiItem(Material.PAINTING, "style." + style.id(), style.id(), lore, Map.of(
+                "status", configManager.plainMessage(style == currentStyle ? "status.current-style" : "status.apply-style")
+            )));
             slot += 2;
         }
         inventory.setItem(22, backItem());
@@ -277,10 +323,14 @@ public final class NeoTabGui implements Listener {
         Inventory inventory = createInventory(MenuType.SCOREBOARD, "NeoTab - Scoreboard");
         boolean enabled = configManager.getScoreboardConfig().enabled();
         String toggleLore = enabled ? "Disable and save the sidebar scoreboard." : "Enable and save the sidebar scoreboard.";
-        inventory.setItem(10, item(enabled ? Material.REDSTONE_TORCH : Material.LEVER, "Toggle: " + (enabled ? "On" : "Off"), toggleLore));
-        inventory.setItem(12, item(Material.OAK_SIGN, "Lines", "Edit lines 1-15."));
-        inventory.setItem(14, item(Material.BOOK, "Presets", "Save or load scoreboard presets."));
-        inventory.setItem(16, item(Material.PAINTING, "Title Style", "Current: " + scoreboardTitleStyleLabel()));
+        inventory.setItem(10, guiItem(enabled ? Material.REDSTONE_TORCH : Material.LEVER, "scoreboard.toggle", "Toggle: " + (enabled ? "On" : "Off"), toggleLore, Map.of(
+            "status", onOff(enabled)
+        )));
+        inventory.setItem(12, guiItem(Material.OAK_SIGN, "scoreboard.lines", "Lines", "Edit lines 1-15."));
+        inventory.setItem(14, guiItem(Material.BOOK, "scoreboard.presets", "Presets", "Save or load scoreboard presets."));
+        inventory.setItem(16, guiItem(Material.PAINTING, "scoreboard.title-style", "Title Style", "Current: " + scoreboardTitleStyleLabel(), Map.of(
+            "current", scoreboardTitleStyleLabel()
+        )));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -311,16 +361,16 @@ public final class NeoTabGui implements Listener {
         }
 
         Inventory inventory = createInventory(MenuType.SCOREBOARD_PRESETS, "NeoTab - Presets");
-        inventory.setItem(4, item(Material.CHEST, "Save Current", "Type a preset name in chat."));
+        inventory.setItem(4, guiItem(Material.CHEST, "scoreboard.save-current", "Save Current", "Type a preset name in chat."));
 
         List<String> presets = scoreboardService.listPresets();
         if (presets.isEmpty()) {
-            inventory.setItem(13, item(Material.GRAY_DYE, "No Presets", "Save the current scoreboard first."));
+            inventory.setItem(13, guiItem(Material.GRAY_DYE, "scoreboard.no-presets", "No Presets", "Save the current scoreboard first."));
         } else {
             int count = Math.min(presets.size(), PRESET_SLOTS.length);
             for (int index = 0; index < count; index++) {
                 String preset = presets.get(index);
-                inventory.setItem(PRESET_SLOTS[index], item(Material.BOOK, preset, "Open load/delete actions."));
+                inventory.setItem(PRESET_SLOTS[index], guiItem(Material.BOOK, "scoreboard.preset", preset, "Open load/delete actions.", Map.of("preset", preset)));
             }
         }
 
@@ -371,9 +421,9 @@ public final class NeoTabGui implements Listener {
 
     private void openScoreboardPresetActions(Player player, String presetName) {
         Inventory inventory = createInventory(MenuType.SCOREBOARD_PRESET_ACTIONS, "NeoTab - Preset", presetName);
-        inventory.setItem(4, item(Material.BOOK, presetName, "Saved scoreboard preset."));
-        inventory.setItem(11, item(Material.LIME_DYE, "Load", "Apply this preset."));
-        inventory.setItem(15, item(Material.BARRIER, "Delete", "Delete this preset."));
+        inventory.setItem(4, guiItem(Material.BOOK, "scoreboard.saved-preset", presetName, "Saved scoreboard preset.", Map.of("preset", presetName)));
+        inventory.setItem(11, guiItem(Material.LIME_DYE, "scoreboard.load", "Load", "Apply this preset."));
+        inventory.setItem(15, guiItem(Material.BARRIER, "scoreboard.delete", "Delete", "Delete this preset."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -420,7 +470,10 @@ public final class NeoTabGui implements Listener {
         List<String> lines = configManager.getScoreboardConfig().lines();
         for (int index = 0; index < ConfigManager.MAX_SCOREBOARD_LINES; index++) {
             String current = index < lines.size() && !lines.get(index).isBlank() ? configManager.toPlain(lines.get(index), "scoreboard-line-preview") : "empty";
-            inventory.setItem(index, item(Material.OAK_SIGN, "Line " + (index + 1), "Current: " + current));
+            inventory.setItem(index, guiItem(Material.OAK_SIGN, "scoreboard.line", "Line " + (index + 1), "Current: " + current, Map.of(
+                "line", Integer.toString(index + 1),
+                "current", current
+            )));
         }
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
@@ -444,12 +497,12 @@ public final class NeoTabGui implements Listener {
 
     private void openScoreboardLinePresets(Player player, int lineNumber) {
         Inventory inventory = createInventory(MenuType.SCOREBOARD_LINE_PRESETS, "NeoTab - Line " + lineNumber, lineNumber);
-        inventory.setItem(10, item(Material.PLAYER_HEAD, "Online Players", "Online: {online}/{max}"));
-        inventory.setItem(11, item(Material.NAME_TAG, "Player Name", "Player: {player}"));
-        inventory.setItem(12, item(Material.COMPASS, "Ping", "Ping: {ping}ms"));
-        inventory.setItem(13, item(Material.REDSTONE, "RAM", "RAM: {ram_used}/{ram_max} MB"));
-        inventory.setItem(15, item(Material.WRITABLE_BOOK, "Custom", "Type this line in chat."));
-        inventory.setItem(16, item(Material.BARRIER, "Clear", "Clear this line."));
+        inventory.setItem(10, guiItem(Material.PLAYER_HEAD, "scoreboard.online-players", "Online Players", "Online: {online}/{max}"));
+        inventory.setItem(11, guiItem(Material.NAME_TAG, "scoreboard.player-name", "Player Name", "Player: {player}"));
+        inventory.setItem(12, guiItem(Material.COMPASS, "scoreboard.ping", "Ping", "Ping: {ping}ms"));
+        inventory.setItem(13, guiItem(Material.REDSTONE, "scoreboard.ram", "RAM", "RAM: {ram_used}/{ram_max} MB"));
+        inventory.setItem(15, guiItem(Material.WRITABLE_BOOK, "scoreboard.custom", "Custom", "Type this line in chat."));
+        inventory.setItem(16, guiItem(Material.BARRIER, "scoreboard.clear", "Clear", "Clear this line."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -500,12 +553,18 @@ public final class NeoTabGui implements Listener {
 
     private void openScoreboardStyle(Player player) {
         Inventory inventory = createInventory(MenuType.SCOREBOARD_STYLE, "NeoTab - SB Style");
-        inventory.setItem(4, item(Material.BARRIER, "Off", configManager.getScoreboardConfig().titleAnimationEnabled() ? "Disable title animation." : "Current style."));
+        boolean animationEnabled = configManager.getScoreboardConfig().titleAnimationEnabled();
+        inventory.setItem(4, guiItem(Material.BARRIER, "scoreboard-style.off", "Off", animationEnabled ? "Disable title animation." : "Current style.", Map.of(
+            "status", configManager.plainMessage(animationEnabled ? "status.disable-title-animation" : "status.current-style")
+        )));
         int slot = 10;
         AnimationUtils.Style currentStyle = configManager.getScoreboardConfig().titleAnimationStyle();
         for (AnimationUtils.Style style : AnimationUtils.Style.values()) {
             String lore = configManager.getScoreboardConfig().titleAnimationEnabled() && style == currentStyle ? "Current style." : "Apply this title animation.";
-            inventory.setItem(slot, item(Material.PAINTING, style.id(), lore));
+            inventory.setItem(slot, guiItem(Material.PAINTING, "scoreboard-style." + style.id(), style.id(), lore, Map.of(
+                "status", configManager.plainMessage(configManager.getScoreboardConfig().titleAnimationEnabled() && style == currentStyle
+                    ? "status.current-style" : "status.apply-style")
+            )));
             slot += 2;
         }
         inventory.setItem(22, backItem());
@@ -546,14 +605,16 @@ public final class NeoTabGui implements Listener {
 
     private String scoreboardTitleStyleLabel() {
         ConfigManager.ScoreboardConfig scoreboardConfig = configManager.getScoreboardConfig();
-        return scoreboardConfig.titleAnimationEnabled() ? scoreboardConfig.titleAnimationStyle().id() : "off";
+        return scoreboardConfig.titleAnimationEnabled()
+            ? scoreboardConfig.titleAnimationStyle().id()
+            : configManager.plainMessage("status.off");
     }
 
     private void openExtras(Player player) {
         Inventory inventory = createInventory(MenuType.EXTRAS, "NeoTab - Extras");
-        inventory.setItem(11, item(Material.FEATHER, "Tab Interval", "Current: " + configManager.getUpdateIntervalTicks() + " ticks."));
-        inventory.setItem(13, item(Material.COMPARATOR, "Scoreboard Interval", "Current: " + configManager.getScoreboardConfig().updateIntervalTicks() + " ticks."));
-        inventory.setItem(15, item(Material.CLOCK, "ActionBar", "Timer, stopwatch, clock, popups, and messages."));
+        inventory.setItem(11, guiItem(Material.FEATHER, "extras.tab-interval", "Tab Interval", "Current: " + configManager.getUpdateIntervalTicks() + " ticks.", Map.of("current", Integer.toString(configManager.getUpdateIntervalTicks()))));
+        inventory.setItem(13, guiItem(Material.COMPARATOR, "extras.scoreboard-interval", "Scoreboard Interval", "Current: " + configManager.getScoreboardConfig().updateIntervalTicks() + " ticks.", Map.of("current", Integer.toString(configManager.getScoreboardConfig().updateIntervalTicks()))));
+        inventory.setItem(15, guiItem(Material.CLOCK, "extras.actionbar", "ActionBar", "Timer, stopwatch, clock, popups, and messages."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -572,14 +633,14 @@ public final class NeoTabGui implements Listener {
     private void openActionBar(Player player) {
         Inventory inventory = createInventory(MenuType.ACTIONBAR, "NeoTab - ActionBar");
         ConfigManager.ActionBarConfig config = configManager.getActionBarConfig();
-        inventory.setItem(9, item(Material.CLOCK, "Timer", "Countdown controls."));
-        inventory.setItem(10, item(Material.COMPASS, "Stopwatch", "Count upward from zero."));
-        inventory.setItem(11, item(Material.DAYLIGHT_DETECTOR, "Clock: " + onOff(config.clock().enabled()), "Shows real time every " + config.clock().intervalSeconds() + "s."));
-        inventory.setItem(12, item(Material.BELL, "Welcome: " + onOff(config.welcome().enabled()), "Shows a join ActionBar message."));
-        inventory.setItem(13, item(Material.PAPER, "Random Messages: " + onOff(config.randomMessages().enabled()), "Shows occasional low-priority messages."));
-        inventory.setItem(14, item(Material.GRASS_BLOCK, "Biome Popup: " + onOff(config.biomePopup().enabled()), "Shows when a player enters a new biome."));
-        inventory.setItem(15, item(Material.EXPERIENCE_BOTTLE, "Achievements: " + onOff(config.achievements().enabled()), "Counts visible Minecraft advancements."));
-        inventory.setItem(16, item(Material.REDSTONE_TORCH, "Performance Notice", "Nearest player and structure popup settings."));
+        inventory.setItem(9, guiItem(Material.CLOCK, "actionbar.timer", "Timer", "Countdown controls."));
+        inventory.setItem(10, guiItem(Material.COMPASS, "actionbar.stopwatch", "Stopwatch", "Count upward from zero."));
+        inventory.setItem(11, guiItem(Material.DAYLIGHT_DETECTOR, "actionbar.clock", "Clock: " + onOff(config.clock().enabled()), "Shows real time every " + config.clock().intervalSeconds() + "s.", Map.of("status", onOff(config.clock().enabled()), "seconds", Integer.toString(config.clock().intervalSeconds()))));
+        inventory.setItem(12, guiItem(Material.BELL, "actionbar.welcome", "Welcome: " + onOff(config.welcome().enabled()), "Shows a join ActionBar message.", Map.of("status", onOff(config.welcome().enabled()))));
+        inventory.setItem(13, guiItem(Material.PAPER, "actionbar.random-messages", "Random Messages: " + onOff(config.randomMessages().enabled()), "Shows occasional low-priority messages.", Map.of("status", onOff(config.randomMessages().enabled()))));
+        inventory.setItem(14, guiItem(Material.GRASS_BLOCK, "actionbar.biome-popup", "Biome Popup: " + onOff(config.biomePopup().enabled()), "Shows when a player enters a new biome.", Map.of("status", onOff(config.biomePopup().enabled()))));
+        inventory.setItem(15, guiItem(Material.EXPERIENCE_BOTTLE, "actionbar.achievements", "Achievements: " + onOff(config.achievements().enabled()), "Counts visible Minecraft advancements.", Map.of("status", onOff(config.achievements().enabled()))));
+        inventory.setItem(16, guiItem(Material.REDSTONE_TORCH, "actionbar.performance", "Performance Notice", "Nearest player and structure popup settings."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -588,11 +649,11 @@ public final class NeoTabGui implements Listener {
         switch (slot) {
             case 9 -> openTimer(player);
             case 10 -> openStopwatch(player);
-            case 11 -> toggleActionBarModule(player, "clock", "neotab.extras.clock", "Clock");
-            case 12 -> toggleActionBarModule(player, "welcome", "neotab.extras.welcome", "Welcome");
-            case 13 -> toggleActionBarModule(player, "random-messages", "neotab.extras.randommessages", "Random Messages");
-            case 14 -> toggleActionBarModule(player, "biome-popup", "neotab.extras.biome", "Biome Popup");
-            case 15 -> toggleActionBarModule(player, "achievements", "neotab.extras.achievements", "Achievements");
+            case 11 -> toggleActionBarModule(player, "clock", "neotab.extras.clock", configManager.plainMessage("module.clock"));
+            case 12 -> toggleActionBarModule(player, "welcome", "neotab.extras.welcome", configManager.plainMessage("module.welcome"));
+            case 13 -> toggleActionBarModule(player, "random-messages", "neotab.extras.randommessages", configManager.plainMessage("module.random-messages"));
+            case 14 -> toggleActionBarModule(player, "biome-popup", "neotab.extras.biome", configManager.plainMessage("module.biome-popup"));
+            case 15 -> toggleActionBarModule(player, "achievements", "neotab.extras.achievements", configManager.plainMessage("module.achievements"));
             case 16 -> {
                 player.sendMessage(configManager.message("performance-notice-warning"));
                 openPerformanceNotice(player);
@@ -605,18 +666,18 @@ public final class NeoTabGui implements Listener {
 
     private void openTabInterval(Player player) {
         Inventory inventory = createInventory(MenuType.TAB_INTERVAL, "NeoTab - Tab Interval");
-        inventory.setItem(10, item(Material.FEATHER, "Smooth", tabIntervalLore("smooth")));
-        inventory.setItem(13, item(Material.GOLD_INGOT, "Balanced", tabIntervalLore("balanced")));
-        inventory.setItem(16, item(Material.IRON_INGOT, "Light", tabIntervalLore("light")));
+        inventory.setItem(10, guiItem(Material.FEATHER, "interval.smooth", "Smooth", tabIntervalLore("smooth"), intervalPlaceholders("smooth", false)));
+        inventory.setItem(13, guiItem(Material.GOLD_INGOT, "interval.balanced", "Balanced", tabIntervalLore("balanced"), intervalPlaceholders("balanced", false)));
+        inventory.setItem(16, guiItem(Material.IRON_INGOT, "interval.light", "Light", tabIntervalLore("light"), intervalPlaceholders("light", false)));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
 
     private void openScoreboardInterval(Player player) {
         Inventory inventory = createInventory(MenuType.SCOREBOARD_INTERVAL, "NeoTab - SB Interval");
-        inventory.setItem(10, item(Material.FEATHER, "Smooth", scoreboardIntervalLore("smooth")));
-        inventory.setItem(13, item(Material.GOLD_INGOT, "Balanced", scoreboardIntervalLore("balanced")));
-        inventory.setItem(16, item(Material.IRON_INGOT, "Light", scoreboardIntervalLore("light")));
+        inventory.setItem(10, guiItem(Material.FEATHER, "interval.smooth", "Smooth", scoreboardIntervalLore("smooth"), intervalPlaceholders("smooth", true)));
+        inventory.setItem(13, guiItem(Material.GOLD_INGOT, "interval.balanced", "Balanced", scoreboardIntervalLore("balanced"), intervalPlaceholders("balanced", true)));
+        inventory.setItem(16, guiItem(Material.IRON_INGOT, "interval.light", "Light", scoreboardIntervalLore("light"), intervalPlaceholders("light", true)));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -682,13 +743,13 @@ public final class NeoTabGui implements Listener {
 
     private void openTimer(Player player) {
         Inventory inventory = createInventory(MenuType.TIMER, "NeoTab - ActionBar Timer");
-        inventory.setItem(10, item(Material.EMERALD, "Start 5m", "Start a 5 minute timer."));
-        inventory.setItem(11, item(Material.OAK_SIGN, "Custom Duration", "Type a duration in chat."));
-        inventory.setItem(12, item(Material.YELLOW_DYE, "Pause", "Pause your timer."));
-        inventory.setItem(13, item(Material.LIME_DYE, "Resume", "Resume your timer."));
-        inventory.setItem(14, item(Material.RED_DYE, "Stop", "Stop your timer."));
-        inventory.setItem(15, item(Material.WRITABLE_BOOK, "Text", "Current: " + configManager.getActionBarTimerConfig().runningFormat()));
-        inventory.setItem(16, item(Material.DIAMOND, "Start 10m", "Start a 10 minute timer."));
+        inventory.setItem(10, guiItem(Material.EMERALD, "timer.start-5m", "Start 5m", "Start a 5 minute timer."));
+        inventory.setItem(11, guiItem(Material.OAK_SIGN, "timer.custom-duration", "Custom Duration", "Type a duration in chat."));
+        inventory.setItem(12, guiItem(Material.YELLOW_DYE, "timer.pause", "Pause", "Pause your timer."));
+        inventory.setItem(13, guiItem(Material.LIME_DYE, "timer.resume", "Resume", "Resume your timer."));
+        inventory.setItem(14, guiItem(Material.RED_DYE, "timer.stop", "Stop", "Stop your timer."));
+        inventory.setItem(15, guiItem(Material.WRITABLE_BOOK, "timer.text", "Text", "Current: " + configManager.getActionBarTimerConfig().runningFormat(), Map.of("current", configManager.getActionBarTimerConfig().runningFormat())));
+        inventory.setItem(16, guiItem(Material.DIAMOND, "timer.start-10m", "Start 10m", "Start a 10 minute timer."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -758,11 +819,11 @@ public final class NeoTabGui implements Listener {
 
     private void openStopwatch(Player player) {
         Inventory inventory = createInventory(MenuType.STOPWATCH, "NeoTab - Stopwatch");
-        inventory.setItem(10, item(Material.EMERALD, "Start", "Start your stopwatch."));
-        inventory.setItem(12, item(Material.YELLOW_DYE, "Pause", "Pause your stopwatch."));
-        inventory.setItem(13, item(Material.LIME_DYE, "Resume", "Resume your stopwatch."));
-        inventory.setItem(14, item(Material.RED_DYE, "Stop", "Stop your stopwatch."));
-        inventory.setItem(16, item(Material.BARRIER, "Reset", "Reset to zero."));
+        inventory.setItem(10, guiItem(Material.EMERALD, "stopwatch.start", "Start", "Start your stopwatch."));
+        inventory.setItem(12, guiItem(Material.YELLOW_DYE, "stopwatch.pause", "Pause", "Pause your stopwatch."));
+        inventory.setItem(13, guiItem(Material.LIME_DYE, "stopwatch.resume", "Resume", "Resume your stopwatch."));
+        inventory.setItem(14, guiItem(Material.RED_DYE, "stopwatch.stop", "Stop", "Stop your stopwatch."));
+        inventory.setItem(16, guiItem(Material.BARRIER, "stopwatch.reset", "Reset", "Reset to zero."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
@@ -806,15 +867,18 @@ public final class NeoTabGui implements Listener {
     private void openPerformanceNotice(Player player) {
         Inventory inventory = createInventory(MenuType.PERFORMANCE_NOTICE, "NeoTab - Performance");
         ConfigManager.ActionBarConfig config = configManager.getActionBarConfig();
-        inventory.setItem(11, item(Material.PLAYER_HEAD, "Nearest Player: " + onOff(config.nearestPlayer().enabled()), "Can be heavier on large servers. Interval: " + config.nearestPlayer().checkIntervalTicks() + " ticks."));
-        inventory.setItem(15, item(Material.STRUCTURE_BLOCK, "Structure Popup", "Experimental placeholder. Detection is planned."));
+        inventory.setItem(11, guiItem(Material.PLAYER_HEAD, "performance.nearest-player", "Nearest Player: " + onOff(config.nearestPlayer().enabled()), "Can be heavier on large servers. Interval: " + config.nearestPlayer().checkIntervalTicks() + " ticks.", Map.of(
+            "status", onOff(config.nearestPlayer().enabled()),
+            "ticks", Integer.toString(config.nearestPlayer().checkIntervalTicks())
+        )));
+        inventory.setItem(15, guiItem(Material.STRUCTURE_BLOCK, "performance.structure-popup", "Structure Popup", "Experimental placeholder. Detection is planned."));
         inventory.setItem(22, backItem());
         player.openInventory(inventory);
     }
 
     private void handlePerformanceNoticeClick(Player player, int slot) {
         switch (slot) {
-            case 11 -> toggleActionBarModule(player, "nearest-player", "neotab.extras.nearestplayer", "Nearest Player");
+            case 11 -> toggleActionBarModule(player, "nearest-player", "neotab.extras.nearestplayer", configManager.plainMessage("module.nearest-player"));
             case 15 -> {
                 player.sendMessage(configManager.message("structure-popup-coming-soon"));
                 openPerformanceNotice(player);
@@ -898,6 +962,17 @@ public final class NeoTabGui implements Listener {
         return (ticks == null ? "Unavailable." : ticks + " ticks.") + suffix;
     }
 
+    private Map<String, String> intervalPlaceholders(String preset, boolean scoreboard) {
+        Integer ticks = configManager.getPerformancePresetTicks(preset);
+        boolean current = scoreboard
+            ? ticks != null && ticks == configManager.getScoreboardConfig().updateIntervalTicks()
+            : preset.equals(configManager.getActivePerformancePreset());
+        return Map.of(
+            "ticks", ticks == null ? "?" : Integer.toString(ticks),
+            "status", current ? configManager.plainMessage("status.current") : ""
+        );
+    }
+
     private int presetIndexForSlot(int slot) {
         for (int index = 0; index < PRESET_SLOTS.length; index++) {
             if (PRESET_SLOTS[index] == slot) {
@@ -921,7 +996,7 @@ public final class NeoTabGui implements Listener {
     }
 
     private String onOff(boolean enabled) {
-        return enabled ? "On" : "Off";
+        return configManager.plainMessage(enabled ? "status.on" : "status.off");
     }
 
     private Inventory createInventory(MenuType menuType, String title) {
@@ -940,20 +1015,62 @@ public final class NeoTabGui implements Listener {
         GuiHolder holder = new GuiHolder(menuType);
         holder.setLineNumber(lineNumber);
         holder.setPresetName(presetName);
-        Inventory inventory = Bukkit.createInventory(holder, 27, title);
+        Map<String, String> placeholders = presetName == null
+            ? (lineNumber > 0 ? Map.of("line", Integer.toString(lineNumber)) : Map.of())
+            : Map.of("preset", presetName);
+        String titleKey = switch (menuType) {
+            case MAIN -> "main";
+            case TAB -> "tab";
+            case COLORS -> "colors";
+            case STYLE -> "style";
+            case SCOREBOARD -> "scoreboard";
+            case SCOREBOARD_PRESETS -> "scoreboard-presets";
+            case SCOREBOARD_PRESET_ACTIONS -> "scoreboard-preset";
+            case SCOREBOARD_LINES -> "scoreboard-lines";
+            case SCOREBOARD_LINE_PRESETS -> "scoreboard-line-presets";
+            case SCOREBOARD_STYLE -> "scoreboard-style";
+            case EXTRAS -> "extras";
+            case ACTIONBAR -> "actionbar";
+            case TAB_INTERVAL -> "tab-interval";
+            case SCOREBOARD_INTERVAL -> "scoreboard-interval";
+            case TIMER -> "timer";
+            case STOPWATCH -> "stopwatch";
+            case PERFORMANCE_NOTICE -> "performance";
+            case LANGUAGE -> "language";
+        };
+        String localizedTitle = configManager.messageOrDefault("gui.title." + titleKey, title, placeholders);
+        Inventory inventory = Bukkit.createInventory(holder, 27, localizedTitle);
         holder.setInventory(inventory);
         return inventory;
     }
 
     private ItemStack backItem() {
-        return item(Material.ARROW, "Back", "Return to the previous menu.");
+        return guiItem(Material.ARROW, "common.back", "Back", "Return to the previous menu.");
     }
 
-    private ItemStack item(Material material, String name, String lore) {
+    private ItemStack guiItem(Material material, String key, String fallbackName, String fallbackLore) {
+        return guiItem(material, key, fallbackName, fallbackLore, Map.of());
+    }
+
+    private ItemStack guiItem(Material material, String key, String fallbackName, String fallbackLore, Map<String, String> placeholders) {
+        String name = configManager.messageOrDefault(
+            "gui.item." + key + ".name",
+            "<light_purple>" + fallbackName + "</light_purple>",
+            placeholders
+        );
+        String lore = configManager.messageOrDefault(
+            "gui.item." + key + ".lore",
+            "<gray>" + fallbackLore + "</gray>",
+            placeholders
+        );
+        return rawItem(material, name, lore);
+    }
+
+    private ItemStack rawItem(Material material, String name, String lore) {
         ItemStack itemStack = new ItemStack(material);
         ItemMeta meta = itemStack.getItemMeta();
-        meta.setDisplayName(ChatColor.RESET.toString() + ChatColor.LIGHT_PURPLE + name);
-        meta.setLore(List.of(ChatColor.RESET.toString() + ChatColor.GRAY + lore));
+        meta.setDisplayName(ChatColor.RESET.toString() + name);
+        meta.setLore(List.of(ChatColor.RESET.toString() + lore));
         itemStack.setItemMeta(meta);
         return itemStack;
     }
@@ -975,7 +1092,8 @@ public final class NeoTabGui implements Listener {
         SCOREBOARD_INTERVAL,
         TIMER,
         STOPWATCH,
-        PERFORMANCE_NOTICE
+        PERFORMANCE_NOTICE,
+        LANGUAGE
     }
 
     private static final class GuiHolder implements NeoTabInventoryHolder {

@@ -17,7 +17,10 @@ final class NeoTabMetricsTest {
     void languageNormalizationOnlyExposesStableBuckets() {
         assertEquals("de", NeoTabMetrics.normalizeLanguage("de"));
         assertEquals("de", NeoTabMetrics.normalizeLanguage("de_DE"));
+        assertEquals("de", NeoTabMetrics.normalizeLanguage("deutsch"));
+        assertEquals("de", NeoTabMetrics.normalizeLanguage("german"));
         assertEquals("en", NeoTabMetrics.normalizeLanguage("en-US"));
+        assertEquals("en", NeoTabMetrics.normalizeLanguage("englisch"));
         assertEquals("other", NeoTabMetrics.normalizeLanguage("fr"));
         assertEquals("other", NeoTabMetrics.normalizeLanguage(null));
         assertEquals("other", NeoTabMetrics.normalizeLanguage(42));
