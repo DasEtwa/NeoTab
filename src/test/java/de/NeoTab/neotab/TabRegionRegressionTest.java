@@ -113,6 +113,14 @@ final class TabRegionRegressionTest {
     }
 
     @Test
+    void regionPriorityButtonsClampInsteadOfWrappingAtIntegerLimits() {
+        assertEquals(Integer.MAX_VALUE, RegionProfileGui.adjustedPriority(Integer.MAX_VALUE, 1));
+        assertEquals(Integer.MIN_VALUE, RegionProfileGui.adjustedPriority(Integer.MIN_VALUE, -1));
+        assertEquals(43, RegionProfileGui.adjustedPriority(42, 1));
+        assertEquals(41, RegionProfileGui.adjustedPriority(42, -1));
+    }
+
+    @Test
     void regionPositionWorldMismatchUsesFailureInsteadOfSuccessMessage() {
         RegionManager.RegionMutationResult result = new RegionManager.RegionMutationResult(
             false,

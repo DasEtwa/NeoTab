@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -34,6 +35,7 @@ public final class ActionBarService implements Listener {
     private final PlatformBridge platformBridge;
     private final Map<UUID, Map<String, ActionBarMessage>> messages;
     private final Map<UUID, DeliveredMessage> deliveredMessages;
+    private final long monotonicOriginNanos;
 
     private BukkitTask task;
 
@@ -43,6 +45,7 @@ public final class ActionBarService implements Listener {
         platformBridge = new PlatformBridge(plugin, configManager);
         messages = new HashMap<>();
         deliveredMessages = new HashMap<>();
+        monotonicOriginNanos = System.nanoTime();
     }
 
     public void start() {
@@ -80,7 +83,7 @@ public final class ActionBarService implements Listener {
             return false;
         }
 
-        long expiresAt = System.currentTimeMillis() + durationMillis;
+        long expiresAt = monotonicMillis() + durationMillis;
         messages.computeIfAbsent(player.getUniqueId(), ignored -> new HashMap<>())
             .put(source, new ActionBarMessage(source, text == null ? Component.empty() : text, priority, expiresAt));
         dispatch(player);
@@ -151,7 +154,7 @@ public final class ActionBarService implements Listener {
             return;
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicMillis();
         if (!shouldSend(delivered, message, now, KEEP_ALIVE_INTERVAL_MILLIS)) {
             return;
         }
@@ -176,7 +179,7 @@ public final class ActionBarService implements Listener {
             return null;
         }
 
-        long now = System.currentTimeMillis();
+        long now = monotonicMillis();
         ActionBarMessage winning = null;
         Iterator<Map.Entry<String, ActionBarMessage>> iterator = playerMessages.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -195,6 +198,14 @@ public final class ActionBarService implements Listener {
             messages.remove(uuid);
         }
         return winning;
+    }
+
+    private long monotonicMillis() {
+        return elapsedMillis(monotonicOriginNanos, System.nanoTime());
+    }
+
+    static long elapsedMillis(long originNanos, long nowNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(nowNanos - originNanos);
     }
 
     private void stopTask() {

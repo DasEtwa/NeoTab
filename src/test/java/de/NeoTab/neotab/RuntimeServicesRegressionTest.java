@@ -54,6 +54,14 @@ final class RuntimeServicesRegressionTest {
     }
 
     @Test
+    void actionBarDurationsUseMonotonicElapsedTimeAcrossNanoTimeWraparound() {
+        long originNanos = Long.MAX_VALUE - 500_000L;
+        long twoMillisecondsLater = originNanos + 2_000_000L;
+
+        assertEquals(2L, ActionBarService.elapsedMillis(originNanos, twoMillisecondsLater));
+    }
+
+    @Test
     void flushAsyncReturnsImmediatelyAndCompletesAfterPriorWrite() throws Exception {
         CountDownLatch writeStarted = new CountDownLatch(1);
         CountDownLatch releaseWrite = new CountDownLatch(1);

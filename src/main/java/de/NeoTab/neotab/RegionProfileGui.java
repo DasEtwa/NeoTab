@@ -337,10 +337,15 @@ public final class RegionProfileGui implements Listener {
             openList(player);
             return;
         }
-        int priority = optionalRegion.get().priority() + delta;
+        int priority = adjustedPriority(optionalRegion.get().priority(), delta);
         regionManager.updatePriority(regionName, priority);
         player.sendMessage(configManager.message("region-priority-set", Map.of("name", regionName, "priority", Integer.toString(priority))));
         openEdit(player, regionName);
+    }
+
+    static int adjustedPriority(int priority, int delta) {
+        long adjusted = (long) priority + delta;
+        return (int) Math.max(Integer.MIN_VALUE, Math.min(Integer.MAX_VALUE, adjusted));
     }
 
     private void requestTabProfile(Player player, String regionName) {
