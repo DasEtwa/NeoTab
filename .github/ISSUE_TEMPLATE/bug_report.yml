@@ -1,0 +1,106 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in NeoTab.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a NeoTab bug!
+
+        Please fill out the form below with as much detail as possible. This makes it much easier to reproduce and fix the issue.
+
+  - type: input
+    id: neotab-version
+    attributes:
+      label: NeoTab version
+      description: Which NeoTab version are you running?
+      placeholder: "e.g. 1.4.2"
+    validations:
+      required: true
+
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version
+      description: Which Minecraft server version are you running?
+      placeholder: "e.g. 1.21.8"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: server-software
+    attributes:
+      label: Server software
+      description: Which server implementation are you using?
+      options:
+        - Paper
+        - Spigot
+        - CraftBukkit
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      description: Which Java version is the server running on?
+      placeholder: "e.g. Java 21"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you observed.
+      placeholder: Tell us what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect NeoTab to do instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest set of steps that reproduces the issue.
+      placeholder: |
+        1. Start the server
+        2. Run /tab reload
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or errors
+      description: Paste any relevant console output, warnings, errors, or stack traces here.
+      render: shell
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add anything else that may help, such as related plugins, screenshots, or configuration details.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I am using a supported Minecraft version (1.20.6 or newer).
+          required: true
+        - label: I have checked that I am using the latest available NeoTab release.
+          required: true
+        - label: I searched existing issues before opening this one.
+          required: true
