@@ -1,0 +1,114 @@
+name: Compatibility / Server Issue
+description: Report a problem that appears to depend on server software, Minecraft version, Java, or another plugin.
+title: "[Compatibility]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for issues that appear only on a specific server platform, Minecraft version, Java version, or plugin setup.
+
+        If the problem is a general NeoTab bug, please use the Bug Report form instead.
+
+  - type: input
+    id: neotab-version
+    attributes:
+      label: NeoTab version
+      placeholder: "e.g. 1.4.2"
+    validations:
+      required: true
+
+  - type: input
+    id: minecraft-version
+    attributes:
+      label: Minecraft version
+      placeholder: "e.g. 1.21.8"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: server-software
+    attributes:
+      label: Server software
+      options:
+        - Paper
+        - Spigot
+        - CraftBukkit
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: server-build
+    attributes:
+      label: Server build / version
+      description: Include the exact build or version if available.
+      placeholder: "e.g. Paper build 123"
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      placeholder: "e.g. Java 21"
+    validations:
+      required: true
+
+  - type: textarea
+    id: plugins
+    attributes:
+      label: Relevant plugins
+      description: List plugins that may interact with NeoTab, especially PlaceholderAPI, LuckPerms, scoreboard/tab plugins, or protocol plugins.
+      placeholder: |
+        PlaceholderAPI: ...
+        LuckPerms: ...
+        Other relevant plugins: ...
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Compatibility problem
+      description: Explain what works, what fails, and whether the same setup works on another server platform or version.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start server with ...
+        2. Join the server
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or errors
+      description: Paste startup errors, stack traces, warnings, or other relevant console output.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Paste only the configuration needed to reproduce the issue. Remove secrets before posting.
+      render: yaml
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I am using a supported Minecraft version (1.20.6 or newer).
+          required: true
+        - label: I have checked that I am using the latest available NeoTab release.
+          required: true
+        - label: I tested whether the issue is caused by another tablist, scoreboard, or formatting plugin where applicable.
+          required: true
+        - label: I searched existing issues before opening this one.
+          required: true
