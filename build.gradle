@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "de.NeoTab"
-version = "1.4.1"
+version = "1.4.2"
 
 def adventureVersion = "4.17.0"
 def bstatsVersion = "3.2.1"

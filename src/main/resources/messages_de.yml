@@ -478,3 +478,5 @@ actionbar.random-messages:
   - "Neu hier? Frag einfach das Team!"
   - "Danke, dass du auf diesem Server spielst!"
   - "Hab eine entspannte Session :)"
+
+storage-read-only: "<red>{file} kann nicht gespeichert werden. Repariere die Datei und führe /tab reload aus. Die bisherigen Einstellungen bleiben erhalten.</red>"

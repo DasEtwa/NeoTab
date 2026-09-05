@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -19,12 +21,18 @@ public final class StopwatchService implements ActionBarModule, Listener {
     private final ConfigManager configManager;
     private final ActionBarService actionBarService;
     private final ActionBarTextFormatter formatter;
-    private final Map<UUID, StopwatchSession> sessions;
+    private final Map<UUID, ElapsedSession> sessions;
 
     private ActionBarTimerService timerService;
     private BukkitTask task;
+    private final LongSupplier nanoTime;
 
     public StopwatchService(NeoTab plugin, ConfigManager configManager, ActionBarService actionBarService, ActionBarTextFormatter formatter) {
+        this(plugin, configManager, actionBarService, formatter, System::nanoTime);
+    }
+
+    StopwatchService(NeoTab plugin, ConfigManager configManager, ActionBarService actionBarService, ActionBarTextFormatter formatter, LongSupplier nanoTime) {
+        this.nanoTime = nanoTime;
         this.plugin = plugin;
         this.configManager = configManager;
         this.actionBarService = actionBarService;
@@ -61,14 +69,14 @@ public final class StopwatchService implements ActionBarModule, Listener {
             return false;
         }
 
-        sessions.put(player.getUniqueId(), new StopwatchSession(0, false));
+        sessions.put(player.getUniqueId(), ElapsedSession.start(nanoTime.getAsLong()));
         ensureTask();
         send(player, 0);
         return true;
     }
 
     public boolean stop(Player player) {
-        StopwatchSession removed = sessions.remove(player.getUniqueId());
+        ElapsedSession removed = sessions.remove(player.getUniqueId());
         if (removed == null) {
             return false;
         }
@@ -84,32 +92,32 @@ public final class StopwatchService implements ActionBarModule, Listener {
     }
 
     public boolean pause(Player player) {
-        StopwatchSession session = sessions.get(player.getUniqueId());
+        ElapsedSession session = sessions.get(player.getUniqueId());
         if (session == null || session.paused()) {
             return false;
         }
-        sessions.put(player.getUniqueId(), new StopwatchSession(session.elapsedSeconds(), true));
-        send(player, session.elapsedSeconds());
+        sessions.put(player.getUniqueId(), session.pause(nanoTime.getAsLong()));
+        send(player, elapsedSeconds(session));
         return true;
     }
 
     public boolean resume(Player player) {
-        StopwatchSession session = sessions.get(player.getUniqueId());
+        ElapsedSession session = sessions.get(player.getUniqueId());
         if (session == null || !session.paused()) {
             return false;
         }
-        sessions.put(player.getUniqueId(), new StopwatchSession(session.elapsedSeconds(), false));
+        sessions.put(player.getUniqueId(), session.resume(nanoTime.getAsLong()));
         ensureTask();
-        send(player, session.elapsedSeconds());
+        send(player, elapsedSeconds(session));
         return true;
     }
 
     public boolean reset(Player player) {
-        StopwatchSession session = sessions.get(player.getUniqueId());
+        ElapsedSession session = sessions.get(player.getUniqueId());
         if (session == null) {
             return false;
         }
-        sessions.put(player.getUniqueId(), new StopwatchSession(0, false));
+        sessions.put(player.getUniqueId(), ElapsedSession.start(nanoTime.getAsLong()));
         ensureTask();
         send(player, 0);
         return true;
@@ -155,23 +163,22 @@ public final class StopwatchService implements ActionBarModule, Listener {
             return;
         }
 
-        Iterator<Map.Entry<UUID, StopwatchSession>> iterator = sessions.entrySet().iterator();
+        Iterator<Map.Entry<UUID, ElapsedSession>> iterator = sessions.entrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<UUID, StopwatchSession> entry = iterator.next();
+            Map.Entry<UUID, ElapsedSession> entry = iterator.next();
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || !player.isOnline()) {
                 iterator.remove();
                 continue;
             }
 
-            StopwatchSession session = entry.getValue();
+            ElapsedSession session = entry.getValue();
             if (session.paused()) {
-                send(player, session.elapsedSeconds());
+                send(player, elapsedSeconds(session));
                 continue;
             }
 
-            int elapsedSeconds = session.elapsedSeconds() + 1;
-            entry.setValue(new StopwatchSession(elapsedSeconds, false));
+            int elapsedSeconds = elapsedSeconds(session);
             send(player, elapsedSeconds);
         }
 
@@ -206,9 +213,7 @@ public final class StopwatchService implements ActionBarModule, Listener {
         return String.format("%02d:%02d", minutes, remainingSeconds);
     }
 
-    private record StopwatchSession(
-        int elapsedSeconds,
-        boolean paused
-    ) {
+    private int elapsedSeconds(ElapsedSession session) {
+        return (int) Math.min(Integer.MAX_VALUE, TimeUnit.NANOSECONDS.toSeconds(session.elapsedNanos(nanoTime.getAsLong())));
     }
 }

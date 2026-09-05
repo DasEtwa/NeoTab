@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -23,8 +25,14 @@ public final class ActionBarTimerService implements Listener {
 
     private StopwatchService stopwatchService;
     private BukkitTask task;
+    private final LongSupplier nanoTime;
 
     public ActionBarTimerService(NeoTab plugin, ConfigManager configManager, ActionBarService actionBarService, ActionBarTextFormatter formatter) {
+        this(plugin, configManager, actionBarService, formatter, System::nanoTime);
+    }
+
+    ActionBarTimerService(NeoTab plugin, ConfigManager configManager, ActionBarService actionBarService, ActionBarTextFormatter formatter, LongSupplier nanoTime) {
+        this.nanoTime = nanoTime;
         this.plugin = plugin;
         this.configManager = configManager;
         this.actionBarService = actionBarService;
@@ -56,7 +64,7 @@ public final class ActionBarTimerService implements Listener {
         if (stopwatchService != null && stopwatchService.isRunning(player)) {
             stopwatchService.stopSilently(player);
         }
-        sessions.put(player.getUniqueId(), new TimerSession(durationSeconds, false));
+        sessions.put(player.getUniqueId(), new TimerSession(TimeUnit.SECONDS.toNanos(durationSeconds), ElapsedSession.start(nanoTime.getAsLong())));
         ensureTask();
         send(player, durationSeconds);
         return true;
@@ -75,21 +83,21 @@ public final class ActionBarTimerService implements Listener {
 
     public boolean pause(Player player) {
         TimerSession session = sessions.get(player.getUniqueId());
-        if (session == null || session.paused()) {
+        if (session == null || session.clock().paused()) {
             return false;
         }
 
-        sessions.put(player.getUniqueId(), new TimerSession(session.remainingSeconds(), true));
+        sessions.put(player.getUniqueId(), new TimerSession(session.durationNanos(), session.clock().pause(nanoTime.getAsLong())));
         return true;
     }
 
     public boolean resume(Player player) {
         TimerSession session = sessions.get(player.getUniqueId());
-        if (session == null || !session.paused()) {
+        if (session == null || !session.clock().paused()) {
             return false;
         }
 
-        sessions.put(player.getUniqueId(), new TimerSession(session.remainingSeconds(), false));
+        sessions.put(player.getUniqueId(), new TimerSession(session.durationNanos(), session.clock().resume(nanoTime.getAsLong())));
         ensureTask();
         return true;
     }
@@ -175,19 +183,18 @@ public final class ActionBarTimerService implements Listener {
             }
 
             TimerSession session = entry.getValue();
-            if (session.paused()) {
-                sendPaused(player, session.remainingSeconds());
+            if (session.clock().paused()) {
+                sendPaused(player, session.remainingSeconds(nanoTime.getAsLong()));
                 continue;
             }
 
-            int remainingSeconds = session.remainingSeconds() - 1;
+            int remainingSeconds = session.remainingSeconds(nanoTime.getAsLong());
             if (remainingSeconds <= 0) {
                 actionBarService.submit(player, "timer", renderTimerText(player, configManager.getActionBarTimerConfig().endedFormat(), 0, false), ActionBarService.PRIORITY_TIMER, 2500L);
                 iterator.remove();
                 continue;
             }
 
-            entry.setValue(new TimerSession(remainingSeconds, false));
             send(player, remainingSeconds);
         }
 
@@ -236,8 +243,12 @@ public final class ActionBarTimerService implements Listener {
     }
 
     private record TimerSession(
-        int remainingSeconds,
-        boolean paused
+        long durationNanos,
+        ElapsedSession clock
     ) {
+        int remainingSeconds(long now) {
+            long remaining = Math.max(0L, durationNanos - clock.elapsedNanos(now));
+            return (int) ((remaining + 999_999_999L) / 1_000_000_000L);
+        }
     }
 }

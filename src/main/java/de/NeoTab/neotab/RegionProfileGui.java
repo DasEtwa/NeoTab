@@ -139,19 +139,21 @@ public final class RegionProfileGui implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (!requirePermission(player)) {
-            player.closeInventory();
-            return;
-        }
         if (event.getRawSlot() < 0 || event.getRawSlot() >= topInventory.getSize()) {
             return;
         }
-
-        switch (guiHolder.menuType()) {
-            case LIST -> handleListClick(player, guiHolder, event.getRawSlot());
-            case EDIT -> handleEditClick(player, guiHolder, event.getRawSlot());
-            case DELETE_CONFIRM -> handleDeleteConfirmClick(player, guiHolder, event.getRawSlot());
-        }
+        int slot = event.getRawSlot();
+        GuiActions.nextTick(plugin, player, topInventory, () -> {
+            if (!requirePermission(player)) {
+                player.closeInventory();
+                return;
+            }
+            switch (guiHolder.menuType()) {
+                case LIST -> handleListClick(player, guiHolder, slot);
+                case EDIT -> handleEditClick(player, guiHolder, slot);
+                case DELETE_CONFIRM -> handleDeleteConfirmClick(player, guiHolder, slot);
+            }
+        });
     }
 
     @EventHandler

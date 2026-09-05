@@ -41,6 +41,53 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private AsyncYamlWriter yamlWriter;
     private NeoTabMetrics neoTabMetrics;
 
+    private org.bukkit.configuration.file.YamlConfiguration validatedConfig;
+    private YamlFileGuard configFileGuard;
+
+    private YamlFileGuard configFileGuard() {
+        if (configFileGuard == null) {
+            configFileGuard = new YamlFileGuard(new java.io.File(getDataFolder(), "config.yml"));
+        }
+        return configFileGuard;
+    }
+
+    org.bukkit.configuration.file.YamlConfiguration prepareConfigReload() {
+        org.bukkit.configuration.file.YamlConfiguration candidate = configFileGuard().read();
+        try (java.io.InputStream defaults = getResource("config.yml")) {
+            if (defaults != null) {
+                org.bukkit.configuration.file.YamlConfiguration bundled = new org.bukkit.configuration.file.YamlConfiguration();
+                bundled.load(new java.io.InputStreamReader(defaults, java.nio.charset.StandardCharsets.UTF_8));
+                candidate.setDefaults(bundled);
+            }
+        } catch (java.io.IOException | org.bukkit.configuration.InvalidConfigurationException failure) {
+            throw new ConfigurationStorageException("config.yml", failure);
+        }
+        return candidate;
+    }
+
+    void applyConfigReload(org.bukkit.configuration.file.YamlConfiguration candidate) {
+        validatedConfig = candidate;
+        configFileGuard().accept();
+    }
+
+    @Override
+    public void reloadConfig() {
+        applyConfigReload(prepareConfigReload());
+    }
+
+    @Override
+    public org.bukkit.configuration.file.FileConfiguration getConfig() {
+        if (validatedConfig == null) {
+            reloadConfig();
+        }
+        return validatedConfig;
+    }
+
+    org.bukkit.configuration.file.FileConfiguration getWritableConfig() {
+        configFileGuard().requireWritable();
+        return getConfig();
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -137,7 +184,14 @@ public final class NeoTab extends JavaPlugin implements Listener {
         }
     }
 
+    private long uiGeneration;
+
+    long uiGeneration() {
+        return uiGeneration;
+    }
+
     void closePluginInventories() {
+        uiGeneration++;
         for (Player player : getServer().getOnlinePlayers()) {
             org.bukkit.inventory.InventoryHolder holder = player.getOpenInventory().getTopInventory().getHolder();
             if (holder instanceof NeoTabInventoryHolder) {

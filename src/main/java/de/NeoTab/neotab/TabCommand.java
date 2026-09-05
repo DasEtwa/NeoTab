@@ -57,6 +57,15 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        try {
+            return executeCommand(sender, command, label, args);
+        } catch (ConfigurationStorageException failure) {
+            sender.sendMessage(configManager.message("storage-read-only", Map.of("file", failure.fileName())));
+            return true;
+        }
+    }
+
+    private boolean executeCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
             sender.sendMessage(configManager.message("usage"));
             return true;
@@ -1136,11 +1145,14 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            configManager.reload();
+            // Parse both user files before changing any running service or configuration.
+            var candidateConfig = plugin.prepareConfigReload();
+            var candidateRegions = plugin.getRegionManager().prepareReload();
+            configManager.reload(candidateConfig);
             tabUpdater.restart();
             tabUpdater.updateAllNow();
             updateChecker.start();
-            plugin.getRegionManager().reload();
+            plugin.getRegionManager().reload(candidateRegions);
             scoreboardService.restart();
             scoreboardService.warnIfAggressiveInterval();
             plugin.restartActionBarExtras();

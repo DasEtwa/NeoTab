@@ -478,3 +478,5 @@ actionbar.random-messages:
   - "New here? Ask the team for help!"
   - "Thanks for playing on this server!"
   - "Have a cozy session :)"
+
+storage-read-only: "<red>Cannot save {file}. Repair the file and run /tab reload. Previous settings are retained.</red>"

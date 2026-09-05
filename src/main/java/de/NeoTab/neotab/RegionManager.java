@@ -49,6 +49,7 @@ public final class RegionManager {
     private final Map<String, Boolean> warnedTabProfiles;
     private final Map<String, Boolean> warnedScoreboardProfiles;
     private final File regionsFile;
+    private final YamlFileGuard fileGuard;
 
     private long indexedChunkCount;
     private int largeRegionCount;
@@ -74,13 +75,26 @@ public final class RegionManager {
         warnedTabProfiles = new HashMap<>();
         warnedScoreboardProfiles = new HashMap<>();
         regionsFile = new File(plugin.getDataFolder(), "regions.yml");
+        fileGuard = new YamlFileGuard(regionsFile);
+        ensureRegionsFile();
         reload();
     }
 
     /** Reloads the last fully persisted snapshot. The caller must coordinate pending async writes. */
+    YamlConfiguration prepareReload() {
+        YamlConfiguration candidate = fileGuard.read();
+        if (candidate.contains("regions") && !candidate.isConfigurationSection("regions")) {
+            throw fileGuard.reject("regions must be a YAML mapping");
+        }
+        return candidate;
+    }
+
     public void reload() {
+        reload(prepareReload());
+    }
+
+    void reload(YamlConfiguration config) {
         cancelPendingRegionUpdates();
-        ensureRegionsFile();
         regions.clear();
         regionsByChunk.clear();
         largeRegionsByWorld.clear();
@@ -91,7 +105,7 @@ public final class RegionManager {
         largeRegionCount = 0;
         worldEditSelectionProvider.refresh();
 
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(regionsFile);
+        fileGuard.accept();
         ConfigurationSection section = config.getConfigurationSection("regions");
         if (section == null) {
             refreshAllPlayers(true);
@@ -153,6 +167,7 @@ public final class RegionManager {
 
     /** Returns a detailed result so commands and GUIs can explain limit rejections. */
     public RegionMutationResult createRegionChecked(String name, RegionSelectionManager.RegionSelection selection) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         if (!isValidRegionName(normalizedName) || selection == null) {
             return RegionMutationResult.failure(MutationFailure.INVALID_INPUT, "invalid region name or selection");
@@ -187,6 +202,7 @@ public final class RegionManager {
     }
 
     public boolean deleteRegion(String name) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile removed = regions.remove(normalizedName);
         if (removed == null) {
@@ -205,6 +221,7 @@ public final class RegionManager {
 
     /** Returns a detailed result so commands and GUIs can explain size/budget rejections. */
     public RegionMutationResult updateBoundsChecked(String name, RegionSelectionManager.RegionSelection selection) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {
@@ -226,6 +243,7 @@ public final class RegionManager {
     }
 
     public boolean updatePriority(String name, int priority) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {
@@ -246,6 +264,7 @@ public final class RegionManager {
 
     /** Returns a detailed result because enabling a legacy region can exceed the live index budget. */
     public RegionMutationResult updateEnabledChecked(String name, boolean enabled) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {
@@ -266,6 +285,7 @@ public final class RegionManager {
 
     /** Returns WORLD_MISMATCH without modifying endpoints when the other endpoint is in another world. */
     public RegionMutationResult updateBoundaryFromLocationChecked(String name, Location location, boolean pos1) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {
@@ -302,6 +322,7 @@ public final class RegionManager {
     }
 
     public boolean updateTabProfile(String name, String tabProfile) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {
@@ -314,6 +335,7 @@ public final class RegionManager {
     }
 
     public boolean updateScoreboardProfile(String name, String scoreboardProfile) {
+        fileGuard.requireWritable();
         String normalizedName = normalizeName(name);
         RegionProfile region = regions.get(normalizedName);
         if (region == null) {

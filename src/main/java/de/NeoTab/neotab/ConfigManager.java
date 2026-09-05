@@ -103,7 +103,11 @@ public final class ConfigManager {
     }
 
     public void reload() {
-        plugin.reloadConfig();
+        reload(plugin.prepareConfigReload());
+    }
+
+    void reload(YamlConfiguration candidate) {
+        plugin.applyConfigReload(candidate);
         language = Language.fromString(plugin.getConfig().getString("language", "en"));
         loadMessages();
         rebuildSnapshot();
@@ -192,7 +196,7 @@ public final class ConfigManager {
 
     private void persistAndRefresh() {
         File configFile = new File(plugin.getDataFolder(), "config.yml");
-        yamlWriter.write(configFile.toPath(), plugin.getConfig().saveToString());
+        yamlWriter.write(configFile.toPath(), plugin.getWritableConfig().saveToString());
         rebuildSnapshot();
         plugin.refreshMetrics();
     }
@@ -202,24 +206,24 @@ public final class ConfigManager {
     }
 
     public void setServerName(String serverName) {
-        plugin.getConfig().set("server-name", serverName);
+        plugin.getWritableConfig().set("server-name", serverName);
         persistAndRefresh();
     }
 
     public void setAnimationStyle(AnimationUtils.Style style) {
-        plugin.getConfig().set("animation-style", style.id());
+        plugin.getWritableConfig().set("animation-style", style.id());
         persistAndRefresh();
     }
 
     public void setCustomColors(List<String> colors) {
-        plugin.getConfig().set("custom-colors", colors);
+        plugin.getWritableConfig().set("custom-colors", colors);
         persistAndRefresh();
     }
 
     public void setPerformancePreset(String presetName, int intervalTicks) {
         String normalizedPreset = normalizePerformancePresetName(presetName);
         int clampedTicks = clampPerformanceTicks(intervalTicks);
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         config.set("performance.active-preset", normalizedPreset);
         config.set("update-interval-ticks", clampedTicks);
         persistAndRefresh();
@@ -228,7 +232,7 @@ public final class ConfigManager {
     public void saveCurrentPerformancePreset(String presetName) {
         String normalizedPreset = normalizePerformancePresetName(presetName);
         int intervalTicks = getUpdateIntervalTicks();
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         config.set("performance.saved-presets." + normalizedPreset, intervalTicks);
         config.set("performance.active-preset", normalizedPreset);
         config.set("update-interval-ticks", intervalTicks);
@@ -236,29 +240,29 @@ public final class ConfigManager {
     }
 
     public void setScoreboardEnabled(boolean enabled) {
-        plugin.getConfig().set("scoreboard.enabled", enabled);
+        plugin.getWritableConfig().set("scoreboard.enabled", enabled);
         persistAndRefresh();
     }
 
     public void setScoreboardTitle(String title) {
-        plugin.getConfig().set("scoreboard.title", title);
+        plugin.getWritableConfig().set("scoreboard.title", title);
         persistAndRefresh();
     }
 
     public void setScoreboardUpdateIntervalTicks(int intervalTicks) {
-        plugin.getConfig().set("scoreboard.update-interval-ticks", clampPerformanceTicks(intervalTicks));
+        plugin.getWritableConfig().set("scoreboard.update-interval-ticks", clampPerformanceTicks(intervalTicks));
         persistAndRefresh();
     }
 
     public void setScoreboardTitleStyle(AnimationUtils.Style style) {
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         config.set("scoreboard.title-animation.enabled", true);
         config.set("scoreboard.title-animation.style", style.id());
         persistAndRefresh();
     }
 
     public void setScoreboardTitleAnimationEnabled(boolean enabled) {
-        plugin.getConfig().set("scoreboard.title-animation.enabled", enabled);
+        plugin.getWritableConfig().set("scoreboard.title-animation.enabled", enabled);
         persistAndRefresh();
     }
 
@@ -272,7 +276,7 @@ public final class ConfigManager {
             lines.add("");
         }
         lines.set(lineNumber - 1, text);
-        plugin.getConfig().set("scoreboard.lines", lines);
+        plugin.getWritableConfig().set("scoreboard.lines", lines);
         persistAndRefresh();
     }
 
@@ -287,12 +291,12 @@ public final class ConfigManager {
         }
         lines.set(lineNumber - 1, "");
         trimTrailingBlankLines(lines);
-        plugin.getConfig().set("scoreboard.lines", lines);
+        plugin.getWritableConfig().set("scoreboard.lines", lines);
         persistAndRefresh();
     }
 
     public void clearAllScoreboardLines() {
-        plugin.getConfig().set("scoreboard.lines", List.of());
+        plugin.getWritableConfig().set("scoreboard.lines", List.of());
         persistAndRefresh();
     }
 
@@ -302,7 +306,7 @@ public final class ConfigManager {
             return;
         }
 
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         config.set("scoreboard.presets." + normalizedPreset + ".title", getScoreboardConfig().title());
         config.set("scoreboard.presets." + normalizedPreset + ".lines", getScoreboardConfig().lines());
         persistAndRefresh();
@@ -315,7 +319,7 @@ public final class ConfigManager {
             return false;
         }
 
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         config.set("scoreboard.title", preset.title());
         config.set("scoreboard.lines", preset.lines());
         persistAndRefresh();
@@ -328,7 +332,7 @@ public final class ConfigManager {
             return false;
         }
 
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         ConfigurationSection section = config.getConfigurationSection("scoreboard.presets");
         if (section == null) {
             return false;
@@ -351,7 +355,7 @@ public final class ConfigManager {
     }
 
     public void setActionBarTimerRunningFormat(String format) {
-        FileConfiguration config = plugin.getConfig();
+        FileConfiguration config = plugin.getWritableConfig();
         String path = hasNewTimerConfig(config) ? "extras.actionbar.timer" : "extras.actionbar-timer";
         config.set(path + ".running-format", format);
         persistAndRefresh();
@@ -373,13 +377,13 @@ public final class ConfigManager {
         if (path == null) {
             return;
         }
-        plugin.getConfig().set(path, enabled);
+        plugin.getWritableConfig().set(path, enabled);
         persistAndRefresh();
     }
 
     public void setLanguage(Language newLanguage) {
         Language selected = newLanguage == null ? Language.ENGLISH : newLanguage;
-        plugin.getConfig().set("language", selected.id());
+        plugin.getWritableConfig().set("language", selected.id());
         language = selected;
         persistAndRefresh();
     }
@@ -410,17 +414,17 @@ public final class ConfigManager {
     }
 
     public void setRandomActionBarMessages(List<String> messages) {
-        plugin.getConfig().set("extras.actionbar.random-messages.messages", messages == null ? List.of() : List.copyOf(messages));
+        plugin.getWritableConfig().set("extras.actionbar.random-messages.messages", messages == null ? List.of() : List.copyOf(messages));
         persistAndRefresh();
     }
 
     public void setClockTimezone(String timezone) {
-        plugin.getConfig().set("extras.actionbar.clock.timezone", timezone);
+        plugin.getWritableConfig().set("extras.actionbar.clock.timezone", timezone);
         persistAndRefresh();
     }
 
     public void setClockFormat(String format) {
-        plugin.getConfig().set("extras.actionbar.clock.format", format);
+        plugin.getWritableConfig().set("extras.actionbar.clock.format", format);
         persistAndRefresh();
     }
 

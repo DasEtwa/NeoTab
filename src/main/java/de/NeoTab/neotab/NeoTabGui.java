@@ -90,7 +90,8 @@ public final class NeoTabGui implements Listener {
             return;
         }
 
-        handleClick(player, guiHolder, event.getRawSlot());
+        int slot = event.getRawSlot();
+        GuiActions.nextTick(plugin, player, topInventory, () -> handleClick(player, guiHolder, slot));
     }
 
     @EventHandler
