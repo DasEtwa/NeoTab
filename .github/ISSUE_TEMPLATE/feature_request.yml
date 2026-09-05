@@ -1,0 +1,70 @@
+name: Feature Request
+description: Suggest an idea or improvement for NeoTab.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to NeoTab!
+
+        Please describe the use case first. Knowing the problem behind a feature often helps find the best solution.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this feature solve?
+      description: Describe the use case, limitation, or problem you are trying to solve.
+      placeholder: Explain what you are trying to achieve and why it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe how you would like NeoTab to handle this.
+      placeholder: What should NeoTab do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried another approach, plugin, configuration, or workaround?
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or mockups
+      description: Add configuration examples, screenshots, links, or mockups if they help explain the idea.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of NeoTab is this request mainly about?
+      options:
+        - Tablist
+        - Scoreboard
+        - ActionBar
+        - Configuration
+        - Placeholders / integrations
+        - Performance
+        - Compatibility
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this request.
+          required: true
+        - label: This request is specifically related to NeoTab.
+          required: true
