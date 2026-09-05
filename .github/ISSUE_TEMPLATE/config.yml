@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: NeoTab releases
+    url: https://github.com/DasEtwa/NeoTab/releases
+    about: Check the latest NeoTab release before reporting an issue.
+  - name: NeoTab repository
+    url: https://github.com/DasEtwa/NeoTab
+    about: View the README, source code, and project information.
