@@ -379,7 +379,7 @@ public final class TabUpdater {
 
         if (desiredName != null) {
             String current = player.getPlayerListName();
-            FieldDecision decision = decideField(state.nameOwned, state.lastAppliedName, current, desiredName);
+            FieldDecision decision = decideField(state.nameOwned, state.lastAppliedName, current, desiredName, state.previousName);
             state.nameOwned = decision.owned();
             if (decision.write()) {
                 player.setPlayerListName(desiredName);
@@ -392,7 +392,7 @@ public final class TabUpdater {
 
         if (desiredHeader != null) {
             String current = player.getPlayerListHeader();
-            FieldDecision decision = decideField(state.headerOwned, state.lastAppliedHeader, current, desiredHeader);
+            FieldDecision decision = decideField(state.headerOwned, state.lastAppliedHeader, current, desiredHeader, state.previousHeader);
             state.headerOwned = decision.owned();
             if (decision.write()) {
                 player.setPlayerListHeader(desiredHeader);
@@ -405,7 +405,7 @@ public final class TabUpdater {
 
         if (desiredFooter != null) {
             String current = player.getPlayerListFooter();
-            FieldDecision decision = decideField(state.footerOwned, state.lastAppliedFooter, current, desiredFooter);
+            FieldDecision decision = decideField(state.footerOwned, state.lastAppliedFooter, current, desiredFooter, state.previousFooter);
             state.footerOwned = decision.owned();
             if (decision.write()) {
                 player.setPlayerListFooter(desiredFooter);
@@ -417,10 +417,13 @@ public final class TabUpdater {
         }
     }
 
-    static FieldDecision decideField(boolean owned, String lastApplied, String current, String desired) {
+    static FieldDecision decideField(boolean owned, String lastApplied, String current, String desired, String previous) {
         boolean stillOwned = owned;
         if (stillOwned && lastApplied != null && !legacyEquivalent(current, lastApplied)) {
             stillOwned = false;
+        } else if (!stillOwned && (legacyEquivalent(current, previous) || legacyEquivalent(current, ""))) {
+            // A restored or cleared field is the only observable signal that the other plugin released it.
+            stillOwned = true;
         }
         return new FieldDecision(stillOwned, stillOwned && !legacyEquivalent(current, desired));
     }

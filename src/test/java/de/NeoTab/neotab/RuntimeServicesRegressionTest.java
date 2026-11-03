@@ -27,6 +27,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 final class RuntimeServicesRegressionTest {
+    @org.junit.jupiter.api.Test
+    void bossBarScheduleSupportsUpToSevenDays() {
+        org.junit.jupiter.api.Assertions.assertEquals(172800, BossBarService.parseScheduleSeconds("48h"));
+        org.junit.jupiter.api.Assertions.assertEquals(604800, BossBarService.parseScheduleSeconds("168h"));
+        org.junit.jupiter.api.Assertions.assertEquals(-1, BossBarService.parseScheduleSeconds("169h"));
+        org.junit.jupiter.api.Assertions.assertEquals(-1, BossBarService.parseScheduleSeconds("99999999999999999999h"));
+    }
     @TempDir
     Path temporaryDirectory;
 

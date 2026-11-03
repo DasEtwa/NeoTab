@@ -40,6 +40,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
     private boolean luckPermsWarned;
     private AsyncYamlWriter yamlWriter;
     private NeoTabMetrics neoTabMetrics;
+    private BossBarService bossBarService;
 
     private org.bukkit.configuration.file.YamlConfiguration validatedConfig;
     private YamlFileGuard configFileGuard;
@@ -102,6 +103,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         actionBarService = new ActionBarService(this, configManager);
         actionBarTextFormatter = new ActionBarTextFormatter(this, configManager);
         scoreboardService = new ScoreboardService(this, configManager);
+        bossBarService = new BossBarService(this, configManager);
         regionSelectionManager = new RegionSelectionManager();
         worldEditSelectionProvider = new WorldEditSelectionProvider(this);
         regionManager = new RegionManager(this, configManager, regionSelectionManager, worldEditSelectionProvider, yamlWriter);
@@ -142,6 +144,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
         tabUpdater.start();
         tabUpdater.updateAllNow();
         scoreboardService.start();
+        bossBarService.restart();
         scoreboardService.warnIfAggressiveInterval();
         startActionBarExtras();
         updateChecker.start();
@@ -152,6 +155,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (bossBarService != null) bossBarService.stop();
         closePluginInventories();
         if (chatInputManager != null) {
             chatInputManager.cancelAll(false);
@@ -278,6 +282,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
+        if (bossBarService != null) bossBarService.join(event.getPlayer());
         if (tabUpdater != null) {
             tabUpdater.handleJoin(event.getPlayer());
         }
@@ -300,6 +305,7 @@ public final class NeoTab extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        if (bossBarService != null) bossBarService.quit(event.getPlayer());
         if (tabUpdater != null) {
             tabUpdater.handleDisconnect(event.getPlayer().getUniqueId());
             tabUpdater.handleQuit();
@@ -320,6 +326,8 @@ public final class NeoTab extends JavaPlugin implements Listener {
         command.setExecutor(tabCommand);
         command.setTabCompleter(tabCommand);
     }
+
+    BossBarService getBossBarService() { return bossBarService; }
 
     private void startActionBarExtras() {
         if (!isActionBarGloballyEnabled()) {

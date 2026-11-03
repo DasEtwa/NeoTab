@@ -1,0 +1,160 @@
+server-name: <gradient:#ff5555:#ffaa00>Neo Event</gradient>
+language: de
+metrics:
+  enabled: false
+animation-style: rainbow
+header:
+  bold-animation: false
+performance:
+  active-preset: smooth
+  presets:
+    smooth: 3
+    balanced: 10
+    light: 20
+  saved-presets: {}
+update-interval-ticks: 3
+enable-luckperms-prefix: true
+enable-placeholderapi: true
+update-checker:
+  enabled: false
+  include-beta: false
+  notify-admins: true
+  check-delay-seconds: 5
+gui:
+  enabled: true
+tab-profiles:
+  spawn:
+    server-name: <gradient:#AA00AA:#BA55D3>Spawn</gradient>
+    animation-style: static
+    header:
+      bold-animation: false
+    custom-colors:
+    - '#AA00AA'
+    - '#BA55D3'
+    ram-format: '<gray>Spawn | Online: <light_purple>{online}</light_purple>/<light_purple>{max}</light_purple>
+      | Ping: {playerPing}ms</gray>'
+scoreboard:
+  enabled: true
+  update-interval-ticks: 20
+  title: <gold>Event</gold>
+  title-animation:
+    enabled: true
+    style: static
+  lines:
+  - '<yellow>Spieler: {online}/{max}</yellow>'
+  - '<green>Ping: {ping}ms</green>'
+  presets: {}
+extras:
+  actionbar:
+    enabled: true
+    timer:
+      enabled: true
+      running-format: '{time}'
+      paused-format: Paused {time}
+      ended-format: timer ends
+    stopwatch:
+      enabled: true
+      text: <light_purple>Stopwatch {time}</light_purple>
+    clock:
+      enabled: false
+      timezone: Europe/Berlin
+      interval-seconds: 60
+      min-interval-seconds: 60
+      format: HH:mm
+      text: '<gray>Time: <light_purple>{time}</light_purple></gray>'
+    welcome:
+      enabled: true
+      delay-ticks: 20
+      duration-seconds: 5
+      text: <gradient:#AA00AA:#BA55D3>Welcome {player}!</gradient>
+    random-messages:
+      enabled: true
+      interval-seconds: 300
+      min-interval-seconds: 60
+      duration-seconds: 5
+      messages:
+      - Drink water! <3
+      - Stay hydrated!
+      - Take a small break :)
+      - Remember to stretch!
+      - Don't forget to blink :)
+      - Have fun playing!
+      - Good luck and have fun!
+      - Be kind to other players <3
+      - Enjoy your stay!
+      - Need help? Use /help
+      - Join our Discord with /discord
+      - Found a bug? Tell the staff!
+      - Invite your friends :)
+      - Explore, build, survive!
+      - Your adventure starts here!
+      - Stay awesome!
+      - Keep calm and mine on!
+      - Watch your back!
+      - Don't dig straight down!
+      - Diamonds are waiting for you!
+      - Teamwork makes it easier!
+      - Respect other players.
+      - A friendly chat makes the server better.
+      - Take care of your inventory!
+      - Remember to set your home.
+      - Check out the server rules.
+      - Use /spawn to return safely.
+      - New here? Ask the team for help!
+      - Thanks for playing on this server!
+      - Have a cozy session :)
+    biome-popup:
+      enabled: true
+      check-interval-ticks: 40
+      min-check-interval-ticks: 30
+      duration-seconds: 7
+      text: <gray>Entering <light_purple>{biome}</light_purple></gray>
+    achievements:
+      enabled: false
+      provider: minecraft
+      interval-seconds: 60
+      min-interval-seconds: 60
+      duration-seconds: 5
+      text: '<gray>Achievements: <light_purple>{completed}</light_purple>/<light_purple>{total}</light_purple></gray>'
+    nearest-player:
+      enabled: false
+      check-interval-ticks: 60
+      min-check-interval-ticks: 40
+      max-distance: 100
+      same-world-only: true
+      text: '<gray>Nearest: <light_purple>{player}</light_purple> <gray>({distance}
+        blocks)</gray>'
+    structure-popup:
+      enabled: false
+      experimental: true
+      check-interval-ticks: 200
+      min-check-interval-ticks: 100
+      max-distance: 64
+      duration-seconds: 7
+      text: '<gray>Nearby structure: <light_purple>{structure}</light_purple></gray>'
+  actionbar-timer:
+    enabled: true
+    running-format: '{time}'
+    paused-format: Paused {time}
+    ended-format: timer ends
+custom-colors:
+- '#AA00AA'
+- '#9932CC'
+- '#BA55D3'
+- '#DDA0DD'
+- '#9370DB'
+ram-format: '<gray>RAM: <light_purple>{used}MB / {total}MB ({percent}%)</light_purple>
+  | <light_purple>Ping: {playerPing}ms</light_purple> | Avg: {avgPing}ms</gray>'
+bossbars:
+  event:
+    title: <gold>Event laeuft!</gold>
+    color: YELLOW
+    enabled: true
+    interval-seconds: 20
+    duration-seconds: 5
+  welcome:
+    title: <green>Willkommen!</green>
+    color: GREEN
+    enabled: true
+    interval-seconds: 0
+    duration-seconds: 0
