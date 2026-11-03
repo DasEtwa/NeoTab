@@ -16,6 +16,7 @@ _This is a default-configuration comparison, not a perfectly feature-matched mic
 
 | Version | Type | Minecraft | Notes |
 | --- | --- | --- | --- |
+| `2.0.0-Beta.1` | Local development | `1.20.6+` target | Reclaims tab fields after a temporary external owner clears or restores them. |
 | `1.0.2` | Stable | `1.21.11`, `26.1.x` | Original public release. Animated header, RAM footer, ping stats, LuckPerms prefix/suffix support. |
 | `1.1.0` | Stable | `1.20.6+` target, tested with `1.20.6`, `1.21.x` and `26.1.x` | Adds optional PlaceholderAPI support, Modrinth update checks, and in-game performance presets. |
 | `1.1.1` | Patch | `1.20.6+` target, tested with `1.20.6`, `1.21.x`, `26.1.x` and Paper `26.2` beta | Adds ingame header color presets, custom color lists, and improves LuckPerms name color handling. |
@@ -25,7 +26,7 @@ _This is a default-configuration comparison, not a perfectly feature-matched mic
 | `1.3.2` | Stable patch | `1.20.6+` target | Hardens lifecycle and permission checks, improves tab/scoreboard coexistence, spatially indexes expensive lookups, modernizes Paper APIs, and moves YAML disk writes off the server thread. |
 | `1.3.3` | Stable patch | `1.20.6+` target | Re-evaluates temporary external scoreboard ownership during normal ticks so NeoTab resumes automatically after another sidebar plugin releases control. |
 | `1.4.0` | Stable | `1.20.6+` target | Adds one shared JAR for Paper, Spigot, and CraftBukkit, bStats metrics, English/German runtime localization, cross-platform animation fixes, and extensive runtime/performance hardening. |
-| `1.4.2` | Prepared hotfix | `1.20.6+` target | Protects invalid YAML, handles teleport/portal regions, bounds nearest-player work, and fixes timer/chat/GUI lifecycle issues. |
+| `1.4.2` | Stable hotfix | `1.20.6+` target | Protects invalid YAML, handles teleport/portal regions, bounds nearest-player work, and fixes timer/chat/GUI lifecycle issues. |
 | `1.4.1` | Stable patch | `1.20.6+` target | Adds complete German localization, makes metrics reloadable, hardens ActionBar durations against system-clock changes, and improves Linux build compatibility. |
 | `1.3.0-Beta.2` | Beta | `1.20.6+` target | Region Profile GUI, Region Profiles, Random Messages management commands, expanded English defaults, inactive German message pack, and ActionBar Extras fixes. |
 | `1.3.0-Beta.1` | Beta | `1.20.6+` target | ActionBar Extras: central ActionBar priority handling, stopwatch, clock, welcome, random messages, biome popup, achievements, and performance-notice modules. |
@@ -42,6 +43,7 @@ Version docs:
 - [NeoTab 1.4.0](docs/1.4.0.md)
 - [NeoTab 1.4.1](docs/1.4.1.md)
 - [NeoTab 1.4.2](docs/1.4.2.md)
+- [NeoTab 2.0.0-Beta.1 milestone](docs/2.0.0-Beta.1.md)
 
 ## Features
 
@@ -61,6 +63,7 @@ Version docs:
 - Central ActionBar priority system for timer, stopwatch, popups, clock, random messages, and other Extras modules
 - ActionBar Stopwatch, Clock, Welcome message, Random Messages, Biome Popup, Achievements, and Nearest Player modules
 - Region Profiles for automatic tab and scoreboard profile switching inside configured cuboid regions
+- Named global BossBars with colored MiniMessage titles, bar colors, and optional repeating schedules
 - English (default) and German localization for commands, GUI, ActionBar defaults, and NeoTab console output
 - Shared active color palette for tab, scoreboard, chat messages, and timer output
 - Spigot `1.20.6` API compile target with Java 21 bytecode and a shared Paper/Spigot/CraftBukkit JAR
@@ -98,7 +101,7 @@ The main `/tab gui` menu contains a language button as well. The `neotab.languag
 Output:
 
 ```text
-build/libs/NeoTab-1.4.2.jar
+build/libs/NeoTab-2.0.0-Beta.1.jar
 ```
 
 ## Anonymous Metrics
@@ -265,6 +268,24 @@ Supported built-in placeholders:
 
 PlaceholderAPI remains optional and is only used when installed and enabled.
 
+## BossBars
+
+Manage global BossBars with `/neotab bossbar` or `/neotab bb` (permission `neotab.bossbar`):
+
+```text
+/neotab bb add news <gradient:#ff5555:#ffaa00>Welcome to the server!</gradient>
+/neotab bb edit news <green>New event today!</green>
+/neotab bb color news green
+/neotab bb schedule news 5m 30s
+/neotab bb schedule news off
+/neotab bb off news
+/neotab bb on news
+/neotab bb list
+/neotab bb remove news
+```
+
+The identifier is one word (letters, numbers, `_` or `-`); the title may contain spaces and MiniMessage colors. Bar colors are `pink`, `blue`, `red`, `green`, `yellow`, `purple`, and `white`. A schedule displays the bar immediately, then repeats at the specified interval between starts for the specified duration. The duration must be shorter than the interval, which is limited to seven days. `schedule ... off` makes the bar continuously visible. Scheduling follows server ticks, so server lag may extend real-world times. Editing, reloading, or restarting resets the schedule. Bars and their settings are saved in `config.yml`.
+
 ## ActionBar Timer
 
 ```text
@@ -349,6 +370,6 @@ header:
 - PlaceholderAPI is optional and loaded via `softdepend`.
 - LuckPerms is optional and loaded via `softdepend`.
 - The update checker uses Modrinth's public API and a NeoTab User-Agent.
-- The current local source version is `1.4.2` (prepared hotfix; not published).
+- The current source version is `2.0.0-Beta.1` (local development). Version `1.4.2` was released on Modrinth on September 5, 2026.
 - CraftBukkit ActionBar output uses a narrow runtime bridge because the Bukkit API has no public ActionBar method. NeoTab falls back to the vanilla `title` command if that bridge changes in a future Minecraft release.
 - Interactive MiniMessage click/hover events are not preserved at legacy Bukkit output boundaries; RGB colors, gradients, and normal text decorations are preserved.

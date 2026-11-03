@@ -29,6 +29,7 @@ permissions:
       neotab.scoreboard.edit: true
       neotab.scoreboard.presets: true
       neotab.timer: true
+      neotab.bossbar: true
       neotab.timer.admin: true
       neotab.region: true
       neotab.extras: true
@@ -81,6 +82,9 @@ permissions:
     default: op
   neotab.timer:
     description: Allows using the NeoTab ActionBar Timer
+    default: op
+  neotab.bossbar:
+    description: Allows managing global boss bars
     default: op
   neotab.timer.admin:
     description: Allows changing the global persistent ActionBar Timer text

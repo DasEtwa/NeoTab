@@ -42,19 +42,37 @@ final class TabRegionRegressionTest {
             true,
             "\u00A7dNeoTab",
             "\u00A7cForeign header",
-            "\u00A7bNext header"
+            "\u00A7bNext header", ""
         );
         TabUpdater.FieldDecision normalizedFooter = TabUpdater.decideField(
             true,
             "\u00A7dFooter",
             "\u00A7dFooter\u00A7r",
-            "\u00A7bNext footer"
+            "\u00A7bNext footer", ""
         );
 
         assertFalse(foreignHeader.owned());
         assertFalse(foreignHeader.write());
         assertTrue(normalizedFooter.owned());
         assertTrue(normalizedFooter.write());
+    }
+
+    @Test
+    void releasedTabFieldIsReclaimedOnlyAfterClearOrRestore() {
+        var foreign = TabUpdater.decideField(true, "NeoTab", "Foreign", "Next", "Original");
+        assertFalse(foreign.owned());
+        var active = TabUpdater.decideField(foreign.owned(), "NeoTab", "Foreign", "Next", "Original");
+        assertFalse(active.owned());
+        assertFalse(active.write());
+        var cleared = TabUpdater.decideField(active.owned(), "NeoTab", null, "Next", "Original");
+        assertTrue(cleared.owned());
+        assertTrue(cleared.write());
+        var restored = TabUpdater.decideField(false, "NeoTab", "Original", "Next", "Original");
+        assertTrue(restored.owned());
+        assertTrue(restored.write());
+        var alreadyDesired = TabUpdater.decideField(false, "NeoTab", "Original", "Original", "Original");
+        assertTrue(alreadyDesired.owned());
+        assertFalse(alreadyDesired.write());
     }
 
     @Test

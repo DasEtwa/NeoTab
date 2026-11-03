@@ -201,6 +201,18 @@ public final class ConfigManager {
         plugin.refreshMetrics();
     }
 
+    void setBossBarValue(String path, Object value) {
+        var writable = plugin.getWritableConfig();
+        if (value instanceof Map<?, ?> values) {
+            writable.set("bossbars." + path, null);
+            var section = writable.createSection("bossbars." + path);
+            values.forEach((key, entry) -> section.set(key.toString(), entry));
+        } else {
+            writable.set("bossbars." + path, value);
+        }
+        persistAndRefresh();
+    }
+
     public ConfigSnapshot snapshot() {
         return snapshot.get();
     }

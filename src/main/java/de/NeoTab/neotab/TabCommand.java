@@ -77,6 +77,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             return true;
         }
         switch (subcommand) {
+            case "bossbar", "bb" -> { return plugin.getBossBarService().command(sender, args); }
             case "reload" -> {
                 if (!sender.hasPermission("neotab.reload")) {
                     sender.sendMessage(configManager.message("no-permission"));
@@ -196,6 +197,8 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             addIfAllowed(completions, "gui", "neotab.gui", prefix, sender);
             addIfAllowed(completions, "sb", "neotab.scoreboard", prefix, sender);
             addIfAllowed(completions, "timer", "neotab.timer", prefix, sender);
+            addIfAllowed(completions, "bossbar", "neotab.bossbar", prefix, sender);
+            addIfAllowed(completions, "bb", "neotab.bossbar", prefix, sender);
             addIfAllowed(completions, "region", "neotab.region", prefix, sender);
             addIfAllowed(completions, "stopwatch", "neotab.extras.stopwatch", prefix, sender);
             addIfAllowed(completions, "clock", "neotab.extras.clock", prefix, sender);
@@ -207,6 +210,9 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             return completions;
         }
 
+        if ((args[0].equalsIgnoreCase("bossbar") || args[0].equalsIgnoreCase("bb")) && sender.hasPermission("neotab.bossbar")) {
+            return plugin.getBossBarService().complete(args);
+        }
         if (args.length == 2 && args[0].equalsIgnoreCase("style") && sender.hasPermission("neotab.style")) {
             String prefix = args[1].toLowerCase(Locale.ROOT);
             for (AnimationUtils.Style style : AnimationUtils.Style.values()) {
@@ -1156,6 +1162,7 @@ public final class TabCommand implements CommandExecutor, TabCompleter {
             scoreboardService.restart();
             scoreboardService.warnIfAggressiveInterval();
             plugin.restartActionBarExtras();
+            plugin.getBossBarService().restart();
             sender.sendMessage(configManager.message("reload-success"));
         } catch (RuntimeException ex) {
             configManager.log(Level.SEVERE, "log.reload.failed", Map.of(), ex);
