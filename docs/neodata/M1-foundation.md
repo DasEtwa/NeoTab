@@ -12,4 +12,6 @@ ConfigManager retains a loaded configuration and serializes it, while RegionMana
 
 ## Status
 
-Controller, public API, storage, host discovery, durable commits, notifications, NeoTab integration and their tests are not implemented or verified yet. The example configurations are test inputs, not proof of legacy compatibility. No separate NeoData service is required or installed.
+An experimental standalone `NeoDataStore` now provides asynchronous string get, put and serialized read-modify-write operations, per-namespace files and a directory file lock. Tests cover concurrent updates, namespace isolation, restart persistence, invalid paths and duplicate lock acquisition. It is not yet started or used by NeoTab. A successful write means atomic replacement succeeded; filesystem sync and power-loss durability are not guaranteed. Filesystems without atomic replacement reject writes. No existing NeoTab YAML is migrated or changed by this store.
+
+Controller registration, cross-classloader discovery, subscriptions, integration, legacy fixture tests and full failure/recovery testing remain unimplemented. The file lock only coordinates processes using the same directory and locking protocol; it is not yet server-wide host discovery. The example configurations are test inputs, not proof of legacy compatibility. No separate NeoData service is required or installed.
